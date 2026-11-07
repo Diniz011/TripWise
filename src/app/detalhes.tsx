@@ -1,31 +1,112 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+type Gasto = {
+  nome: string;
+  valor: number;
+};
+
+type Viagem = {
+  id: string;
+  nome: string;
+  destino: string;
+  transporte: string;
+  data: string;
+  hotelNome?: string;
+  hotelEndereco?: string;
+  hotelData?: string;
+  passeios?: string | string[];
+  orcamentoTotal?: string;
+  gastos?: string | Gasto[];
+};
+
+type SectionHeaderProps = {
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  isDark: boolean;
+  primaryText: string;
+  secondaryText: string;
+  accent: string;
+};
+
+function SectionHeader({
+  title,
+  subtitle,
+  icon,
+  isDark,
+  primaryText,
+  secondaryText,
+  accent,
+}: SectionHeaderProps) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View
+        style={[
+          styles.sectionIcon,
+          { backgroundColor: isDark ? "#293021" : "#EDF2E5" },
+        ]}
+      >
+        <Ionicons name={icon} size={21} color={accent} />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>
+          {title}
+        </Text>
+        <Text style={[styles.sectionSubtitle, { color: secondaryText }]}>
+          {subtitle}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function lerLista<T>(valor?: string | T[]): T[] {
+  if (!valor) return [];
+  if (Array.isArray(valor)) return valor;
+
+  try {
+    const resultado = JSON.parse(valor);
+    return Array.isArray(resultado) ? resultado : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function Detalhes() {
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
-
   const isDark = colorScheme === "dark";
-  const backgroundColor = isDark ? "#121212" : "#f0f2f5";
-  const cardColor = isDark ? "#1e1e1e" : "#fff";
-  const textColor = isDark ? "#fff" : "#1a1a1a";
-  const subTextColor = isDark ? "#aaa" : "#868e96";
-  const inputBg = isDark ? "#2c2c2c" : "#f8f9fa";
-  const placeholderColor = isDark ? "#888" : "#aaa";
 
+  const background = isDark ? "#121212" : "#F4F6FA";
+  const cardBackground = isDark ? "#1E1E1E" : "#FFFFFF";
+  const primaryText = isDark ? "#FFFFFF" : "#172033";
+  const secondaryText = isDark ? "#A0A0A0" : "#7B8495";
+  const inputBackground = isDark ? "#292929" : "#F5F7FA";
+  const borderColor = isDark ? "#333333" : "#E9ECF2";
+  const accent = "#8FA255";
+
+  const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState(false);
+
   const [nome, setNome] = useState("");
   const [destino, setDestino] = useState("");
   const [transporte, setTransporte] = useState("");
@@ -35,496 +116,1143 @@ export default function Detalhes() {
   const [hotelEndereco, setHotelEndereco] = useState("");
   const [hotelData, setHotelData] = useState("");
 
-  const [passeios, setPasseios] = useState([]);
+  const [passeios, setPasseios] = useState<string[]>([]);
   const [novoPasseio, setNovoPasseio] = useState("");
 
   const [orcamentoTotal, setOrcamentoTotal] = useState("0");
-  const [gastos, setGastos] = useState([]);
+  const [gastos, setGastos] = useState<Gasto[]>([]);
   const [novoGastoNome, setNovoGastoNome] = useState("");
   const [novoGastoValor, setNovoGastoValor] = useState("");
 
-  useEffect(() => {
-    carregarDetalhesViagem();
+  const [viagemNaoEncontrada, setViagemNaoEncontrada] = useState(false);
+
+  // Preenche os estados com os dados da viagem encontrada.
+  const preencherDetalhes = useCallback((viagemAtual: Viagem) => {
+    setViagemNaoEncontrada(false);
+    setNome(viagemAtual.nome || "");
+    setDestino(viagemAtual.destino || "");
+    setTransporte(viagemAtual.transporte || "");
+    setData(viagemAtual.data || "");
+
+    setHotelNome(viagemAtual.hotelNome || "");
+    setHotelEndereco(viagemAtual.hotelEndereco || "");
+    setHotelData(viagemAtual.hotelData || "");
+
+    setPasseios(lerLista<string>(viagemAtual.passeios));
+    setGastos(lerLista<Gasto>(viagemAtual.gastos));
+    setOrcamentoTotal(viagemAtual.orcamentoTotal || "0");
   }, []);
 
-  const carregarDetalhesViagem = async () => {
+  // Mantida para recarregar os dados ao cancelar uma edição.
+  const carregarDetalhesViagem = useCallback(async () => {
     try {
       const dados = await AsyncStorage.getItem("@viagens");
-      if (dados) {
-        const viagens = JSON.parse(dados);
+
+      if (!dados) {
+        setViagemNaoEncontrada(true);
+        return;
+      }
+
+      const viagens: Viagem[] = JSON.parse(dados);
+      const viagemAtual = viagens.find((v) => v.id === params.id);
+
+      if (!viagemAtual) {
+        setViagemNaoEncontrada(true);
+        return;
+      }
+
+      preencherDetalhes(viagemAtual);
+    } catch (error) {
+      console.error("Erro ao carregar viagem:", error);
+      Alert.alert("Erro", "Não foi possível carregar os detalhes da viagem.");
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id, preencherDetalhes]);
+
+  // Carregamento inicial assíncrono, sem atualização síncrona
+  // de estado diretamente dentro do useEffect.
+  useEffect(() => {
+    let ativo = true;
+
+    AsyncStorage.getItem("@viagens")
+      .then((dados) => {
+        if (!ativo) return;
+
+        if (!dados) {
+          setViagemNaoEncontrada(true);
+          return;
+        }
+
+        const viagens: Viagem[] = JSON.parse(dados);
         const viagemAtual = viagens.find((v) => v.id === params.id);
 
-        if (viagemAtual) {
-          setNome(viagemAtual.nome || "");
-          setDestino(viagemAtual.destino || "");
-          setTransporte(viagemAtual.transporte || "");
-          setData(viagemAtual.data || "");
-
-          setHotelNome(viagemAtual.hotelNome || "");
-          setHotelEndereco(viagemAtual.hotelEndereco || "");
-          setHotelData(viagemAtual.hotelData || "");
-
-          setPasseios(
-            viagemAtual.passeios ? JSON.parse(viagemAtual.passeios) : [],
-          );
-          setOrcamentoTotal(viagemAtual.orcamentoTotal || "0");
-          setGastos(viagemAtual.gastos ? JSON.parse(viagemAtual.gastos) : []);
+        if (!viagemAtual) {
+          setViagemNaoEncontrada(true);
+          return;
         }
-      }
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível carregar os detalhes da viagem.");
-    }
+
+        preencherDetalhes(viagemAtual);
+      })
+      .catch((error) => {
+        if (!ativo) return;
+
+        console.error("Erro ao carregar viagem:", error);
+        Alert.alert("Erro", "Não foi possível carregar os detalhes da viagem.");
+      })
+      .finally(() => {
+        if (ativo) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [params.id, preencherDetalhes]);
+
+  const formatarMoeda = (valor: number) => {
+    return valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
   };
 
-  const formatarMoeda = (valor) => {
-    if (isNaN(valor)) return "R$ 0,00";
-    return (
-      "R$ " +
-      valor
-        .toFixed(2)
-        .replace(".", ",")
-        .replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.")
-    );
+  const converterValor = (valor: string) => {
+    const normalizado = valor.trim().replace(",", ".");
+    const numero = Number(normalizado);
+    return Number.isFinite(numero) ? numero : 0;
   };
+
+  const totalGastos = gastos.reduce(
+    (acc, curr) => acc + (Number(curr.valor) || 0),
+    0,
+  );
+
+  const saldoRestante = converterValor(orcamentoTotal) - totalGastos;
+
+  const percentualGasto =
+    converterValor(orcamentoTotal) > 0
+      ? Math.min((totalGastos / converterValor(orcamentoTotal)) * 100, 100)
+      : 0;
 
   const adicionarPasseio = () => {
-    if (!novoPasseio) return;
-    setPasseios([...passeios, novoPasseio]);
+    if (!novoPasseio.trim()) return;
+
+    setPasseios((atual) => [...atual, novoPasseio.trim()]);
     setNovoPasseio("");
   };
 
-  const removerPasseio = (index) => {
-    setPasseios(passeios.filter((_, i) => i !== index));
+  const removerPasseio = (index: number) => {
+    setPasseios((atual) => atual.filter((_, i) => i !== index));
   };
 
   const adicionarGasto = () => {
-    if (!novoGastoNome || !novoGastoValor) return;
-    setGastos([
-      ...gastos,
-      { nome: novoGastoNome, valor: parseFloat(novoGastoValor) },
-    ]);
+    const valor = converterValor(novoGastoValor);
+
+    if (!novoGastoNome.trim() || !novoGastoValor.trim() || valor <= 0) {
+      Alert.alert("Atenção", "Informe o nome e um valor válido para o gasto.");
+      return;
+    }
+
+    setGastos((atual) => [...atual, { nome: novoGastoNome.trim(), valor }]);
+
     setNovoGastoNome("");
     setNovoGastoValor("");
   };
 
-  const removerGasto = (index) => {
-    setGastos(gastos.filter((_, i) => i !== index));
+  const removerGasto = (index: number) => {
+    setGastos((atual) => atual.filter((_, i) => i !== index));
   };
 
-  const totalGastos = gastos.reduce((acc, curr) => acc + curr.valor, 0);
-  const saldoRestante = parseFloat(orcamentoTotal) - totalGastos;
-
   const salvarEdicao = async () => {
+    if (!nome.trim() || !destino.trim() || !transporte.trim() || !data.trim()) {
+      Alert.alert(
+        "Atenção",
+        "Preencha nome, destino, transporte e data da viagem.",
+      );
+      return;
+    }
+
     try {
       const dados = await AsyncStorage.getItem("@viagens");
-      if (dados) {
-        let viagens = JSON.parse(dados);
-        viagens = viagens.map((v) =>
-          v.id === params.id
-            ? {
-                ...v,
-                nome,
-                destino,
-                transporte,
-                data,
-                hotelNome,
-                hotelEndereco,
-                hotelData,
-                passeios: JSON.stringify(passeios),
-                orcamentoTotal,
-                gastos: JSON.stringify(gastos),
-              }
-            : v,
-        );
 
-        await AsyncStorage.setItem("@viagens", JSON.stringify(viagens));
-        Alert.alert("Sucesso", "Informações atualizadas!");
-        setEditando(false);
-        router.replace("/");
+      if (!dados) {
+        Alert.alert("Erro", "Não foi possível encontrar suas viagens.");
+        return;
       }
+
+      const viagens: Viagem[] = JSON.parse(dados);
+
+      const listaAtualizada = viagens.map((v) =>
+        v.id === params.id
+          ? {
+              ...v,
+              nome: nome.trim(),
+              destino: destino.trim(),
+              transporte: transporte.trim(),
+              data: data.trim(),
+              hotelNome: hotelNome.trim(),
+              hotelEndereco: hotelEndereco.trim(),
+              hotelData: hotelData.trim(),
+              passeios: JSON.stringify(passeios),
+              orcamentoTotal,
+              gastos: JSON.stringify(gastos),
+            }
+          : v,
+      );
+
+      await AsyncStorage.setItem("@viagens", JSON.stringify(listaAtualizada));
+
+      setEditando(false);
+
+      Alert.alert("Tudo certo!", "Informações atualizadas com sucesso!", [
+        {
+          text: "Continuar",
+          onPress: () => router.replace("/"),
+        },
+      ]);
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível salvar.");
+      console.error("Erro ao salvar:", error);
+      Alert.alert("Erro", "Não foi possível salvar as alterações.");
     }
   };
 
+  const renderInput = (
+    label: string,
+    value: string,
+    onChangeText: (text: string) => void,
+    placeholder: string,
+    icon: keyof typeof Ionicons.glyphMap,
+    keyboardType: "default" | "numeric" = "default",
+  ) => (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: secondaryText }]}>{label}</Text>
+
+      <View
+        style={[
+          styles.inputContainer,
+          {
+            backgroundColor: inputBackground,
+            borderColor,
+          },
+        ]}
+      >
+        <Ionicons name={icon} size={18} color={accent} />
+
+        <TextInput
+          style={[styles.input, { color: primaryText }]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={secondaryText}
+          keyboardType={keyboardType}
+        />
+      </View>
+    </View>
+  );
+
+  const renderInfo = (
+    label: string,
+    value: string,
+    icon: keyof typeof Ionicons.glyphMap,
+  ) => (
+    <View style={styles.infoItem}>
+      <View
+        style={[
+          styles.infoIcon,
+          { backgroundColor: isDark ? "#293021" : "#EDF2E5" },
+        ]}
+      >
+        <Ionicons name={icon} size={19} color={accent} />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.label, { color: secondaryText }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: primaryText }]}>
+          {value || "Não informado"}
+        </Text>
+      </View>
+    </View>
+  );
+
+  const sectionHeaderProps = {
+    isDark,
+    primaryText,
+    secondaryText,
+    accent,
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.centered, { backgroundColor: background }]}>
+        <ActivityIndicator size="large" color={accent} />
+      </View>
+    );
+  }
+
+  if (viagemNaoEncontrada) {
+    return (
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: background }]}
+        edges={["top", "bottom"]}
+      >
+        <Ionicons name="alert-circle-outline" size={48} color={accent} />
+
+        <Text style={[styles.emptyTitle, { color: primaryText }]}>
+          Viagem não encontrada
+        </Text>
+
+        <Pressable onPress={() => router.replace("/")}>
+          <Text style={{ color: accent, fontWeight: "700", marginTop: 12 }}>
+            Voltar para minhas viagens
+          </Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: background }]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <Stack.Screen
         options={{
-          title: editando ? "Editando..." : nome,
-          headerTitleStyle: {
-            color: "#FFFFFF",
-          },
+          headerShown: false,
         }}
       />
 
-      {/* Card da Viagem */}
-      <View style={[styles.card, { backgroundColor: cardColor }]}>
-        <Text style={[styles.sessaoTitulo, { color: textColor }]}>
-          Informações da Viagem
-        </Text>
-
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>Nome</Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              value={nome}
-              onChangeText={setNome}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>{nome}</Text>
-          )}
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>Destino</Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              value={destino}
-              onChangeText={setDestino}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>
-              📍 {destino}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>
-            Transporte
-          </Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              value={transporte}
-              onChangeText={setTransporte}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>
-              🚀 {transporte}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>Data</Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              value={data}
-              onChangeText={setData}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>📅 {data}</Text>
-          )}
-        </View>
-      </View>
-
-      {/* Card do Hotel */}
-      <View
-        style={[styles.card, { backgroundColor: cardColor, marginTop: 20 }]}
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: background }}
+        edges={["top"]}
       >
-        <Text style={[styles.sessaoTitulo, { color: textColor }]}>
-          Hospedagem 🏨
-        </Text>
+        {/* Cabeçalho personalizado */}
+        <View style={styles.topBar}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => router.replace("/")}
+            hitSlop={10}
+          >
+            <Ionicons name="arrow-back" size={22} color={primaryText} />
 
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>
-            Nome do Hotel
+            <Text style={[styles.backButtonText, { color: primaryText }]}>
+              Viagens
+            </Text>
+          </Pressable>
+
+          <Text style={[styles.topBarTitle, { color: primaryText }]}>
+            {editando ? "Editar viagem" : "Detalhes"}
           </Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              value={hotelNome}
-              onChangeText={setHotelNome}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>
-              {hotelNome || "Não informado"}
-            </Text>
-          )}
+
+          <View style={{ width: 80 }} />
         </View>
 
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>Endereço</Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              value={hotelEndereco}
-              onChangeText={setHotelEndereco}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>
-              {hotelEndereco || "Não informado"}
-            </Text>
-          )}
-        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Cabeçalho da viagem */}
+          <View style={[styles.heroCard, { backgroundColor: cardBackground }]}>
+            <View style={styles.heroTop}>
+              <View style={styles.heroIcon}>
+                <Ionicons name="airplane" size={28} color="#FFFFFF" />
+              </View>
 
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>
-            Data da Hospedagem
-          </Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              value={hotelData}
-              onChangeText={setHotelData}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>
-              {hotelData || "Não informado"}
-            </Text>
-          )}
-        </View>
-      </View>
+              <View style={styles.statusTag}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>Planejada</Text>
+              </View>
+            </View>
 
-      {/* Card de Passeios */}
-      <View
-        style={[styles.card, { backgroundColor: cardColor, marginTop: 20 }]}
-      >
-        <Text style={[styles.sessaoTitulo, { color: textColor }]}>
-          Passeios & Pontos Turísticos 🎟️
-        </Text>
-
-        {passeios.map((item, index) => (
-          <View key={index} style={styles.linhaItem}>
-            <Text style={[styles.textoItem, { color: textColor }]}>
-              • {item}
-            </Text>
-            {editando && (
-              <TouchableOpacity onPress={() => removerPasseio(index)}>
-                <Text>❌</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-
-        {editando && (
-          <View style={styles.linhaAdd}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  flex: 1,
-                  marginBottom: 0,
-                  backgroundColor: inputBg,
-                  color: textColor,
-                },
-              ]}
-              placeholder="Ex: Museu"
-              placeholderTextColor={placeholderColor}
-              value={novoPasseio}
-              onChangeText={setNovoPasseio}
-            />
-
-            <TouchableOpacity
-              style={styles.botaoAdd}
-              onPress={adicionarPasseio}
-            >
-              <Text style={styles.textoBotaoAdd}>+</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* Card de Orçamento */}
-      <View
-        style={[styles.card, { backgroundColor: cardColor, marginTop: 20 }]}
-      >
-        <Text style={[styles.sessaoTitulo, { color: textColor }]}>
-          Orçamento Financeiro 💰
-        </Text>
-
-        <View style={styles.infoRow}>
-          <Text style={[styles.label, { color: subTextColor }]}>
-            Orçamento Total
-          </Text>
-          {editando ? (
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: inputBg, color: textColor },
-              ]}
-              keyboardType="numeric"
-              value={orcamentoTotal}
-              onChangeText={setOrcamentoTotal}
-            />
-          ) : (
-            <Text style={[styles.valor, { color: textColor }]}>
-              {formatarMoeda(parseFloat(orcamentoTotal))}
-            </Text>
-          )}
-        </View>
-
-        {gastos.map((item, index) => (
-          <View key={index} style={styles.linhaItem}>
-            <Text style={[styles.textoItem, { color: textColor }]}>
-              {item.nome}
+            <Text style={[styles.heroLabel, { color: secondaryText }]}>
+              SUA EXPERIÊNCIA
             </Text>
 
-            <View style={{ flexDirection: "row" }}>
-              <Text style={[styles.textoItem, { color: textColor }]}>
-                {formatarMoeda(item.valor)}
+            <Text style={[styles.heroTitle, { color: primaryText }]}>
+              {nome || "Minha viagem"}
+            </Text>
+
+            <View style={styles.heroDestination}>
+              <Ionicons name="location" size={17} color={accent} />
+
+              <Text
+                style={[styles.heroDestinationText, { color: secondaryText }]}
+              >
+                {destino || "Destino não informado"}
               </Text>
-
-              {editando && (
-                <TouchableOpacity
-                  onPress={() => removerGasto(index)}
-                  style={{ marginLeft: 10 }}
-                >
-                  <Text>❌</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
-        ))}
 
-        {editando && (
-          <View style={styles.linhaAdd}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  flex: 2,
-                  marginBottom: 0,
-                  backgroundColor: inputBg,
-                  color: textColor,
-                },
-              ]}
-              placeholder="Gasto"
-              placeholderTextColor={placeholderColor}
-              value={novoGastoNome}
-              onChangeText={setNovoGastoNome}
+          {/* Informações da viagem */}
+          <View style={[styles.card, { backgroundColor: cardBackground }]}>
+            <SectionHeader
+              {...sectionHeaderProps}
+              title="Informações da viagem"
+              subtitle="Os dados principais do seu destino"
+              icon="map-outline"
             />
 
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  flex: 1,
-                  marginBottom: 0,
-                  marginLeft: 10,
-                  backgroundColor: inputBg,
-                  color: textColor,
-                },
-              ]}
-              placeholder="R$"
-              placeholderTextColor={placeholderColor}
-              keyboardType="numeric"
-              value={novoGastoValor}
-              onChangeText={setNovoGastoValor}
-            />
+            {editando ? (
+              <>
+                {renderInput(
+                  "Nome da viagem",
+                  nome,
+                  setNome,
+                  "Ex: Férias",
+                  "bookmark-outline",
+                )}
 
-            <TouchableOpacity style={styles.botaoAdd} onPress={adicionarGasto}>
-              <Text style={styles.textoBotaoAdd}>+</Text>
-            </TouchableOpacity>
+                {renderInput(
+                  "Destino",
+                  destino,
+                  setDestino,
+                  "Ex: Rio de Janeiro",
+                  "location-outline",
+                )}
+
+                {renderInput(
+                  "Transporte",
+                  transporte,
+                  setTransporte,
+                  "Ex: Avião",
+                  "car-outline",
+                )}
+
+                {renderInput(
+                  "Data",
+                  data,
+                  setData,
+                  "Ex: 20/12/2026",
+                  "calendar-outline",
+                )}
+              </>
+            ) : (
+              <View style={styles.infoGrid}>
+                {renderInfo("Nome", nome, "bookmark-outline")}
+                {renderInfo("Destino", destino, "location-outline")}
+                {renderInfo("Transporte", transporte, "car-outline")}
+                {renderInfo("Data", data, "calendar-outline")}
+              </View>
+            )}
           </View>
-        )}
 
-        <Text
-          style={[
-            styles.valor,
-            { marginTop: 15, color: saldoRestante < 0 ? "#e74c3c" : "#2ecc71" },
-          ]}
-        >
-          Saldo: {formatarMoeda(saldoRestante)}
-        </Text>
-      </View>
+          {/* Hospedagem */}
+          <View style={[styles.card, { backgroundColor: cardBackground }]}>
+            <SectionHeader
+              {...sectionHeaderProps}
+              title="Hospedagem"
+              subtitle="Onde você vai ficar"
+              icon="bed-outline"
+            />
 
-      <TouchableOpacity
-        style={[styles.botao, editando && styles.botaoSalvar]}
-        onPress={() => (editando ? salvarEdicao() : setEditando(true))}
-      >
-        <Text style={styles.textoBotao}>
-          {editando ? "💾 Salvar Tudo" : "✏️ Editar Informações"}
-        </Text>
-      </TouchableOpacity>
+            {editando ? (
+              <>
+                {renderInput(
+                  "Nome do hotel",
+                  hotelNome,
+                  setHotelNome,
+                  "Nome da hospedagem",
+                  "business-outline",
+                )}
 
-      <View style={{ height: 50 }} />
-    </ScrollView>
+                {renderInput(
+                  "Endereço",
+                  hotelEndereco,
+                  setHotelEndereco,
+                  "Endereço completo",
+                  "location-outline",
+                )}
+
+                {renderInput(
+                  "Data da hospedagem",
+                  hotelData,
+                  setHotelData,
+                  "Ex: 20/12 a 25/12",
+                  "calendar-outline",
+                )}
+              </>
+            ) : (
+              <View style={styles.infoGrid}>
+                {renderInfo("Hotel", hotelNome, "business-outline")}
+                {renderInfo("Endereço", hotelEndereco, "location-outline")}
+                {renderInfo("Período", hotelData, "calendar-outline")}
+              </View>
+            )}
+          </View>
+
+          {/* Passeios */}
+          <View style={[styles.card, { backgroundColor: cardBackground }]}>
+            <SectionHeader
+              {...sectionHeaderProps}
+              title="Passeios e experiências"
+              subtitle="Lugares que você deseja conhecer"
+              icon="ticket-outline"
+            />
+
+            {passeios.length === 0 && !editando ? (
+              <Text style={[styles.emptyMessage, { color: secondaryText }]}>
+                Nenhum passeio cadastrado ainda.
+              </Text>
+            ) : (
+              passeios.map((item, index) => (
+                <View
+                  key={`${index}-${item}`}
+                  style={[styles.listItem, { borderBottomColor: borderColor }]}
+                >
+                  <View style={styles.listItemLeft}>
+                    <Ionicons
+                      name="navigate-circle-outline"
+                      size={21}
+                      color={accent}
+                    />
+
+                    <Text style={[styles.listItemText, { color: primaryText }]}>
+                      {item}
+                    </Text>
+                  </View>
+
+                  {editando && (
+                    <Pressable
+                      onPress={() => removerPasseio(index)}
+                      hitSlop={8}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={19}
+                        color="#D96B6B"
+                      />
+                    </Pressable>
+                  )}
+                </View>
+              ))
+            )}
+
+            {editando && (
+              <View style={styles.addRow}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    styles.flexInput,
+                    { backgroundColor: inputBackground, borderColor },
+                  ]}
+                >
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={18}
+                    color={accent}
+                  />
+
+                  <TextInput
+                    style={[styles.input, { color: primaryText }]}
+                    placeholder="Adicionar passeio"
+                    placeholderTextColor={secondaryText}
+                    value={novoPasseio}
+                    onChangeText={setNovoPasseio}
+                    onSubmitEditing={adicionarPasseio}
+                  />
+                </View>
+
+                <Pressable style={styles.addButton} onPress={adicionarPasseio}>
+                  <Ionicons name="add" size={23} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {/* Orçamento */}
+          <View style={[styles.card, { backgroundColor: cardBackground }]}>
+            <SectionHeader
+              {...sectionHeaderProps}
+              title="Orçamento financeiro"
+              subtitle="Controle seus gastos durante a viagem"
+              icon="wallet-outline"
+            />
+
+            <View
+              style={[
+                styles.budgetMain,
+                { backgroundColor: isDark ? "#293021" : "#EDF2E5" },
+              ]}
+            >
+              <Text style={[styles.budgetLabel, { color: secondaryText }]}>
+                SALDO RESTANTE
+              </Text>
+
+              <Text
+                style={[
+                  styles.budgetBalance,
+                  { color: saldoRestante < 0 ? "#E36D6D" : accent },
+                ]}
+              >
+                {formatarMoeda(saldoRestante)}
+              </Text>
+
+              <View
+                style={[
+                  styles.progressBackground,
+                  { backgroundColor: isDark ? "#41483A" : "#DCE5CE" },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${percentualGasto}%`,
+                      backgroundColor:
+                        totalGastos > converterValor(orcamentoTotal)
+                          ? "#E36D6D"
+                          : accent,
+                    },
+                  ]}
+                />
+              </View>
+
+              <Text style={[styles.budgetHint, { color: secondaryText }]}>
+                {percentualGasto.toFixed(0)}% do orçamento utilizado
+              </Text>
+            </View>
+
+            {editando ? (
+              renderInput(
+                "Orçamento total (R$)",
+                orcamentoTotal,
+                setOrcamentoTotal,
+                "Ex: 5000",
+                "wallet-outline",
+                "numeric",
+              )
+            ) : (
+              <View
+                style={[styles.budgetRow, { borderBottomColor: borderColor }]}
+              >
+                <Text style={[styles.budgetRowLabel, { color: secondaryText }]}>
+                  Orçamento total
+                </Text>
+
+                <Text style={[styles.budgetRowValue, { color: primaryText }]}>
+                  {formatarMoeda(converterValor(orcamentoTotal))}
+                </Text>
+              </View>
+            )}
+
+            <View
+              style={[styles.budgetRow, { borderBottomColor: borderColor }]}
+            >
+              <Text style={[styles.budgetRowLabel, { color: secondaryText }]}>
+                Total de gastos
+              </Text>
+
+              <Text style={[styles.budgetRowValue, { color: primaryText }]}>
+                {formatarMoeda(totalGastos)}
+              </Text>
+            </View>
+
+            <Text style={[styles.expensesTitle, { color: primaryText }]}>
+              Gastos individuais
+            </Text>
+
+            {gastos.length === 0 ? (
+              <Text style={[styles.emptyMessage, { color: secondaryText }]}>
+                Nenhum gasto registrado.
+              </Text>
+            ) : (
+              gastos.map((item, index) => (
+                <View
+                  key={`${index}-${item.nome}`}
+                  style={[
+                    styles.expenseItem,
+                    { borderBottomColor: borderColor },
+                  ]}
+                >
+                  <View style={styles.listItemLeft}>
+                    <View style={styles.expenseIcon}>
+                      <Ionicons
+                        name="receipt-outline"
+                        size={17}
+                        color={accent}
+                      />
+                    </View>
+
+                    <Text style={[styles.listItemText, { color: primaryText }]}>
+                      {item.nome}
+                    </Text>
+                  </View>
+
+                  <View style={styles.expenseRight}>
+                    <Text style={[styles.expenseValue, { color: primaryText }]}>
+                      {formatarMoeda(item.valor)}
+                    </Text>
+
+                    {editando && (
+                      <Pressable
+                        onPress={() => removerGasto(index)}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color="#D96B6B"
+                        />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              ))
+            )}
+
+            {editando && (
+              <View style={styles.expenseForm}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    { backgroundColor: inputBackground, borderColor },
+                  ]}
+                >
+                  <Ionicons name="create-outline" size={18} color={accent} />
+
+                  <TextInput
+                    style={[styles.input, { color: primaryText }]}
+                    placeholder="Nome do gasto"
+                    placeholderTextColor={secondaryText}
+                    value={novoGastoNome}
+                    onChangeText={setNovoGastoNome}
+                  />
+                </View>
+
+                <View style={styles.addRow}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      styles.flexInput,
+                      { backgroundColor: inputBackground, borderColor },
+                    ]}
+                  >
+                    <Ionicons name="cash-outline" size={18} color={accent} />
+
+                    <TextInput
+                      style={[styles.input, { color: primaryText }]}
+                      placeholder="Valor em R$"
+                      placeholderTextColor={secondaryText}
+                      keyboardType="decimal-pad"
+                      value={novoGastoValor}
+                      onChangeText={setNovoGastoValor}
+                    />
+                  </View>
+
+                  <Pressable style={styles.addButton} onPress={adicionarGasto}>
+                    <Ionicons name="add" size={23} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Botão principal */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.mainButton,
+              {
+                backgroundColor: accent,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+            onPress={() => (editando ? salvarEdicao() : setEditando(true))}
+          >
+            <Ionicons
+              name={editando ? "save-outline" : "create-outline"}
+              size={20}
+              color="#FFFFFF"
+            />
+
+            <Text style={styles.mainButtonText}>
+              {editando ? "Salvar alterações" : "Editar informações"}
+            </Text>
+          </Pressable>
+
+          {editando && (
+            <Pressable
+              style={styles.cancelButton}
+              onPress={() => {
+                setEditando(false);
+                carregarDetalhesViagem();
+              }}
+            >
+              <Text style={[styles.cancelText, { color: secondaryText }]}>
+                Cancelar edição
+              </Text>
+            </Pressable>
+          )}
+
+          <View style={{ height: 35 }} />
+        </ScrollView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingTop: 60 },
-
-  card: {
-    borderRadius: 20,
-    padding: 25,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 5,
-    marginTop: 20,
+  container: {
+    flex: 1,
   },
 
-  sessaoTitulo: { fontSize: 20, fontWeight: "bold", marginBottom: 15 },
-
-  infoRow: { marginBottom: 15 },
-
-  label: {
-    fontSize: 14,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    marginBottom: 5,
-  },
-
-  valor: { fontSize: 20, fontWeight: "500" },
-
-  input: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 18 },
-
-  botao: {
-    backgroundColor: "#007AFF",
-    padding: 15,
-    borderRadius: 10,
+  centered: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
+    padding: 25,
   },
 
-  botaoSalvar: { backgroundColor: "#2ecc71" },
+  topBar: {
+    height: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+  },
 
-  textoBotao: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    width: 80,
+  },
 
-  linhaItem: {
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  topBarTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 45,
+  },
+
+  heroCard: {
+    padding: 21,
+    borderRadius: 20,
+    marginBottom: 18,
+  },
+
+  heroTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    alignItems: "center",
+    marginBottom: 23,
   },
 
-  textoItem: { fontSize: 18 },
-
-  linhaAdd: { flexDirection: "row", alignItems: "center", marginTop: 10 },
-
-  botaoAdd: {
-    backgroundColor: "#007AFF",
-    padding: 12,
-    borderRadius: 8,
-    marginLeft: 10,
+  heroIcon: {
+    width: 51,
+    height: 51,
+    borderRadius: 16,
+    backgroundColor: "#8FA255",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  textoBotaoAdd: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  statusTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#8FA25520",
+    borderRadius: 20,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    gap: 6,
+  },
+
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#8FA255",
+  },
+
+  statusText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#8FA255",
+  },
+
+  heroLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    marginBottom: 7,
+  },
+
+  heroTitle: {
+    fontSize: 25,
+    fontWeight: "800",
+    letterSpacing: -0.6,
+  },
+
+  heroDestination: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 9,
+  },
+
+  heroDestinationText: {
+    fontSize: 13,
+  },
+
+  card: {
+    borderRadius: 19,
+    padding: 17,
+    marginBottom: 16,
+  },
+
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 20,
+  },
+
+  sectionIcon: {
+    width: 43,
+    height: 43,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+
+  sectionSubtitle: {
+    fontSize: 11,
+  },
+
+  infoGrid: {
+    gap: 18,
+  },
+
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  infoIcon: {
+    width: 39,
+    height: 39,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  label: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+
+  infoValue: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  field: {
+    marginBottom: 14,
+  },
+
+  inputContainer: {
+    minHeight: 47,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  input: {
+    flex: 1,
+    minHeight: 45,
+    fontSize: 13,
+  },
+
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+
+  listItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+
+  listItemText: {
+    fontSize: 13,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+
+  addRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginTop: 13,
+  },
+
+  flexInput: {
+    flex: 1,
+  },
+
+  addButton: {
+    width: 47,
+    height: 47,
+    borderRadius: 13,
+    backgroundColor: "#8FA255",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  emptyMessage: {
+    fontSize: 12,
+    paddingVertical: 10,
+  },
+
+  budgetMain: {
+    borderRadius: 16,
+    padding: 17,
+    marginBottom: 17,
+  },
+
+  budgetLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+
+  budgetBalance: {
+    fontSize: 27,
+    fontWeight: "800",
+    marginTop: 7,
+    marginBottom: 15,
+  },
+
+  progressBackground: {
+    height: 7,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+
+  progressFill: {
+    height: 7,
+    borderRadius: 10,
+  },
+
+  budgetHint: {
+    fontSize: 10,
+    marginTop: 9,
+  },
+
+  budgetRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+
+  budgetRowLabel: {
+    fontSize: 12,
+  },
+
+  budgetRowValue: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  expensesTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginTop: 20,
+    marginBottom: 8,
+  },
+
+  expenseItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+
+  expenseIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#8FA25518",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  expenseRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  expenseValue: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  expenseForm: {
+    marginTop: 15,
+    gap: 10,
+  },
+
+  mainButton: {
+    height: 53,
+    borderRadius: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    marginTop: 5,
+  },
+
+  mainButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  cancelButton: {
+    alignItems: "center",
+    paddingVertical: 15,
+  },
+
+  cancelText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: 12,
+  },
 });
