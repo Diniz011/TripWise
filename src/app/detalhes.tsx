@@ -170,8 +170,7 @@ export default function Detalhes() {
     }
   }, [params.id, preencherDetalhes]);
 
-  // Carregamento inicial assíncrono, sem atualização síncrona
-  // de estado diretamente dentro do useEffect.
+  // Carregamento inicial assíncrono.
   useEffect(() => {
     let ativo = true;
 
@@ -309,7 +308,7 @@ export default function Detalhes() {
       Alert.alert("Tudo certo!", "Informações atualizadas com sucesso!", [
         {
           text: "Continuar",
-          onPress: () => router.replace("/"),
+          onPress: () => router.back(),
         },
       ]);
     } catch (error) {
@@ -403,7 +402,7 @@ export default function Detalhes() {
           Viagem não encontrada
         </Text>
 
-        <Pressable onPress={() => router.replace("/")}>
+        <Pressable onPress={() => router.back()}>
           <Text style={{ color: accent, fontWeight: "700", marginTop: 12 }}>
             Voltar para minhas viagens
           </Text>
@@ -431,7 +430,7 @@ export default function Detalhes() {
         <View style={styles.topBar}>
           <Pressable
             style={styles.backButton}
-            onPress={() => router.replace("/")}
+            onPress={() => router.back()}
             hitSlop={10}
           >
             <Ionicons name="arrow-back" size={22} color={primaryText} />

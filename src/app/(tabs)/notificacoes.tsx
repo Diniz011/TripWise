@@ -10,6 +10,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type NotificationItem = {
   id: string;
@@ -160,7 +161,10 @@ export default function Notificacoes() {
   const accent = "#8FA255";
 
   return (
-    <View style={[styles.container, { backgroundColor: background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: background }]}
+      edges={["top"]}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -355,7 +359,7 @@ export default function Notificacoes() {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

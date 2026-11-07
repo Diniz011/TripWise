@@ -198,7 +198,7 @@ function createStyles(colors: {
     content: {
       paddingHorizontal: 22,
       paddingTop: 16,
-      paddingBottom: 35,
+      paddingBottom: 180,
     },
     header: {
       flexDirection: "row",
