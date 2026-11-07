@@ -159,7 +159,7 @@ export default function Perfil() {
               <View style={styles.preferenceInfo}>
                 <Text style={styles.preferenceTitle}>Versão do aplicativo</Text>
                 <Text style={styles.preferenceDescription}>
-                  TripWise · Versão 1.0.0
+                  TripWise · Versão 1.0.2
                 </Text>
               </View>
             </View>
@@ -169,7 +169,9 @@ export default function Perfil() {
           <View style={styles.footer}>
             <Ionicons name="airplane" size={17} color={colors.green} />
             <Text style={styles.footerText}>TripWise</Text>
-            <Text style={styles.footerSubtitle}>Planeje. Explore. Viva.</Text>
+            <Text style={styles.footerSubtitle}>
+              Planeje suas Viagens. Explore o mundo. Viva!
+            </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
