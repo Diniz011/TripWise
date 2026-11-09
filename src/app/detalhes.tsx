@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,6 +17,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  agendarLembreteViagem,
+  getNotificationPreferences,
+  NOTIFICATIONS_STORAGE_KEY,
+} from "../services/notifications";
+
+const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
 
 type Gasto = {
   nome: string;
@@ -34,6 +42,20 @@ type Viagem = {
   passeios?: string | string[];
   orcamentoTotal?: string;
   gastos?: string | Gasto[];
+};
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  category: string;
+  icon: string;
+  color: string;
+  background: string;
+  read: boolean;
+  section: string;
+  viagemId?: string;
 };
 
 type SectionHeaderProps = {
@@ -90,6 +112,12 @@ function lerLista<T>(valor?: string | T[]): T[] {
   }
 }
 
+function converterValor(valor: string) {
+  const normalizado = valor.trim().replace(",", ".");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
 export default function Detalhes() {
   const params = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -126,7 +154,6 @@ export default function Detalhes() {
 
   const [viagemNaoEncontrada, setViagemNaoEncontrada] = useState(false);
 
-  // Preenche os estados com os dados da viagem encontrada.
   const preencherDetalhes = useCallback((viagemAtual: Viagem) => {
     setViagemNaoEncontrada(false);
     setNome(viagemAtual.nome || "");
@@ -143,7 +170,6 @@ export default function Detalhes() {
     setOrcamentoTotal(viagemAtual.orcamentoTotal || "0");
   }, []);
 
-  // Mantida para recarregar os dados ao cancelar uma edição.
   const carregarDetalhesViagem = useCallback(async () => {
     try {
       const dados = await AsyncStorage.getItem("@viagens");
@@ -170,7 +196,8 @@ export default function Detalhes() {
     }
   }, [params.id, preencherDetalhes]);
 
-  // Carregamento inicial assíncrono.
+  // Carregamento inicial assíncrono para evitar atualizações
+  // de estado diretamente durante a execução do efeito.
   useEffect(() => {
     let ativo = true;
 
@@ -194,10 +221,14 @@ export default function Detalhes() {
         preencherDetalhes(viagemAtual);
       })
       .catch((error) => {
-        if (!ativo) return;
-
         console.error("Erro ao carregar viagem:", error);
-        Alert.alert("Erro", "Não foi possível carregar os detalhes da viagem.");
+
+        if (ativo) {
+          Alert.alert(
+            "Erro",
+            "Não foi possível carregar os detalhes da viagem.",
+          );
+        }
       })
       .finally(() => {
         if (ativo) {
@@ -215,12 +246,6 @@ export default function Detalhes() {
       style: "currency",
       currency: "BRL",
     });
-  };
-
-  const converterValor = (valor: string) => {
-    const normalizado = valor.trim().replace(",", ".");
-    const numero = Number(normalizado);
-    return Number.isFinite(numero) ? numero : 0;
   };
 
   const totalGastos = gastos.reduce(
@@ -264,6 +289,78 @@ export default function Detalhes() {
     setGastos((atual) => atual.filter((_, i) => i !== index));
   };
 
+  // Salva as notificações respeitando as preferências configuradas no Perfil.
+  const registrarNotificacoes = async (
+    notificacoes: {
+      preferencia:
+        | "viagemAtualizada"
+        | "hospedagem"
+        | "passeios"
+        | "orcamento80"
+        | "orcamentoExcedido";
+      titulo: string;
+      mensagem: string;
+      categoria: string;
+      icone: string;
+      cor: string;
+      fundo: string;
+    }[],
+  ) => {
+    try {
+      const preferencias = await getNotificationPreferences();
+
+      const notificacoesPermitidas = notificacoes.filter(
+        (item) => preferencias[item.preferencia],
+      );
+
+      if (notificacoesPermitidas.length === 0) return;
+
+      const dadosExistentes = await AsyncStorage.getItem(
+        NOTIFICATIONS_STORAGE_KEY,
+      );
+
+      let notificacoesSalvas: NotificationItem[] = [];
+
+      if (dadosExistentes) {
+        try {
+          const parsed = JSON.parse(dadosExistentes);
+          if (Array.isArray(parsed)) {
+            notificacoesSalvas = parsed;
+          }
+        } catch {
+          notificacoesSalvas = [];
+        }
+      }
+
+      const novasNotificacoes: NotificationItem[] = notificacoesPermitidas.map(
+        (item, index) => ({
+          id: `${Date.now()}-${index}`,
+          title: item.titulo,
+          message: item.mensagem,
+          time: "Agora",
+          category: item.categoria,
+          icon: item.icone,
+          color: item.cor,
+          background: item.fundo,
+          read: false,
+          section: "Hoje",
+          viagemId: params.id,
+        }),
+      );
+
+      await AsyncStorage.setItem(
+        NOTIFICATIONS_STORAGE_KEY,
+        JSON.stringify([...novasNotificacoes, ...notificacoesSalvas]),
+      );
+
+      // Atualiza o contador de notificações não lidas na barra de navegação.
+      DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
+    } catch (error) {
+      // Uma falha nas notificações não deve impedir o salvamento da viagem.
+      console.error("Erro ao registrar notificações:", error);
+    }
+  };
+
   const salvarEdicao = async () => {
     if (!nome.trim() || !destino.trim() || !transporte.trim() || !data.trim()) {
       Alert.alert(
@@ -282,26 +379,183 @@ export default function Detalhes() {
       }
 
       const viagens: Viagem[] = JSON.parse(dados);
+      const viagemAnterior = viagens.find((v) => v.id === params.id);
+
+      if (!viagemAnterior) {
+        Alert.alert("Erro", "Não foi possível encontrar essa viagem.");
+        return;
+      }
+
+      const novaViagem: Viagem = {
+        ...viagemAnterior,
+        nome: nome.trim(),
+        destino: destino.trim(),
+        transporte: transporte.trim(),
+        data: data.trim(),
+        hotelNome: hotelNome.trim(),
+        hotelEndereco: hotelEndereco.trim(),
+        hotelData: hotelData.trim(),
+        passeios: JSON.stringify(passeios),
+        orcamentoTotal,
+        gastos: JSON.stringify(gastos),
+      };
 
       const listaAtualizada = viagens.map((v) =>
-        v.id === params.id
-          ? {
-              ...v,
-              nome: nome.trim(),
-              destino: destino.trim(),
-              transporte: transporte.trim(),
-              data: data.trim(),
-              hotelNome: hotelNome.trim(),
-              hotelEndereco: hotelEndereco.trim(),
-              hotelData: hotelData.trim(),
-              passeios: JSON.stringify(passeios),
-              orcamentoTotal,
-              gastos: JSON.stringify(gastos),
-            }
-          : v,
+        v.id === params.id ? novaViagem : v,
       );
 
+      // Primeiro salvamos os dados da viagem.
       await AsyncStorage.setItem("@viagens", JSON.stringify(listaAtualizada));
+
+      // Atualiza o lembrete local conforme a nova data e o destino.
+      // Uma falha no agendamento não impede o salvamento da viagem.
+      try {
+        await agendarLembreteViagem(novaViagem);
+      } catch (error) {
+        console.error("Erro ao atualizar lembrete da viagem:", error);
+      }
+
+      // Comparamos os dados anteriores com os novos.
+      const mudouInformacaoPrincipal =
+        (viagemAnterior.nome || "") !== novaViagem.nome ||
+        (viagemAnterior.destino || "") !== novaViagem.destino ||
+        (viagemAnterior.transporte || "") !== novaViagem.transporte ||
+        (viagemAnterior.data || "") !== novaViagem.data;
+
+      const mudouHospedagem =
+        (viagemAnterior.hotelNome || "") !== (novaViagem.hotelNome || "") ||
+        (viagemAnterior.hotelEndereco || "") !==
+          (novaViagem.hotelEndereco || "") ||
+        (viagemAnterior.hotelData || "") !== (novaViagem.hotelData || "");
+
+      const passeiosAnteriores = lerLista<string>(viagemAnterior.passeios);
+      const passeiosNovos = passeios;
+
+      const mudouPasseios =
+        JSON.stringify(passeiosAnteriores) !== JSON.stringify(passeiosNovos);
+
+      const orcamentoAnterior = converterValor(
+        viagemAnterior.orcamentoTotal || "0",
+      );
+
+      const orcamentoNovo = converterValor(novaViagem.orcamentoTotal || "0");
+
+      const gastosAnteriores = lerLista<Gasto>(viagemAnterior.gastos);
+
+      const totalGastosAnterior = gastosAnteriores.reduce(
+        (total, gasto) => total + (Number(gasto.valor) || 0),
+        0,
+      );
+
+      const totalGastosNovo = gastos.reduce(
+        (total, gasto) => total + (Number(gasto.valor) || 0),
+        0,
+      );
+
+      const mudouOrcamento =
+        orcamentoAnterior !== orcamentoNovo ||
+        totalGastosAnterior !== totalGastosNovo;
+
+      const mudouAlgumaInformacao =
+        mudouInformacaoPrincipal ||
+        mudouHospedagem ||
+        mudouPasseios ||
+        mudouOrcamento;
+
+      const percentualAnterior =
+        orcamentoAnterior > 0
+          ? (totalGastosAnterior / orcamentoAnterior) * 100
+          : 0;
+
+      const percentualNovo =
+        orcamentoNovo > 0 ? (totalGastosNovo / orcamentoNovo) * 100 : 0;
+
+      const notificacoesParaRegistrar: Parameters<
+        typeof registrarNotificacoes
+      >[0] = [];
+
+      if (mudouAlgumaInformacao) {
+        notificacoesParaRegistrar.push({
+          preferencia: "viagemAtualizada",
+          titulo: "Viagem atualizada!",
+          mensagem: `As informações da sua viagem para ${novaViagem.destino} foram atualizadas.`,
+          categoria: "viagem",
+          icone: "create-outline",
+          cor: "#8FA255",
+          fundo: "#8FA25518",
+        });
+      }
+
+      if (mudouHospedagem) {
+        const hospedagemCadastrada =
+          novaViagem.hotelNome ||
+          novaViagem.hotelEndereco ||
+          novaViagem.hotelData;
+
+        notificacoesParaRegistrar.push({
+          preferencia: "hospedagem",
+          titulo: hospedagemCadastrada
+            ? "Hospedagem atualizada!"
+            : "Hospedagem removida",
+          mensagem: hospedagemCadastrada
+            ? `As informações da hospedagem da viagem para ${novaViagem.destino} foram atualizadas.`
+            : `A hospedagem da viagem para ${novaViagem.destino} foi removida.`,
+          categoria: "hospedagem",
+          icone: "bed-outline",
+          cor: "#6D91C7",
+          fundo: "#6D91C718",
+        });
+      }
+
+      if (mudouPasseios) {
+        notificacoesParaRegistrar.push({
+          preferencia: "passeios",
+          titulo: "Passeios atualizados!",
+          mensagem: `A lista de passeios da viagem para ${novaViagem.destino} foi modificada.`,
+          categoria: "passeios",
+          icone: "ticket-outline",
+          cor: "#A17BC2",
+          fundo: "#A17BC218",
+        });
+      }
+
+      // Alerta de 80%: dispara apenas quando o percentual cruza esse limite.
+      if (
+        orcamentoNovo > 0 &&
+        percentualAnterior < 80 &&
+        percentualNovo >= 80
+      ) {
+        notificacoesParaRegistrar.push({
+          preferencia: "orcamento80",
+          titulo: "Atenção ao orçamento!",
+          mensagem: `Você já utilizou ${percentualNovo.toFixed(0)}% do orçamento da viagem para ${novaViagem.destino}.`,
+          categoria: "orcamento",
+          icone: "alert-circle-outline",
+          cor: "#D99A42",
+          fundo: "#D99A4218",
+        });
+      }
+
+      // Alerta de 100%: dispara quando os gastos ultrapassam o orçamento.
+      if (
+        orcamentoNovo > 0 &&
+        percentualAnterior <= 100 &&
+        percentualNovo > 100
+      ) {
+        notificacoesParaRegistrar.push({
+          preferencia: "orcamentoExcedido",
+          titulo: "Orçamento ultrapassado!",
+          mensagem: `Os gastos da viagem para ${novaViagem.destino} ultrapassaram o orçamento em ${formatarMoeda(totalGastosNovo - orcamentoNovo)}.`,
+          categoria: "orcamento",
+          icone: "warning-outline",
+          cor: "#D96B6B",
+          fundo: "#D96B6B18",
+        });
+      }
+
+      if (notificacoesParaRegistrar.length > 0) {
+        await registrarNotificacoes(notificacoesParaRegistrar);
+      }
 
       setEditando(false);
 
@@ -416,17 +670,12 @@ export default function Detalhes() {
       style={[styles.container, { backgroundColor: background }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <SafeAreaView
         style={{ flex: 1, backgroundColor: background }}
         edges={["top"]}
       >
-        {/* Cabeçalho personalizado */}
         <View style={styles.topBar}>
           <Pressable
             style={styles.backButton}
@@ -434,7 +683,6 @@ export default function Detalhes() {
             hitSlop={10}
           >
             <Ionicons name="arrow-back" size={22} color={primaryText} />
-
             <Text style={[styles.backButtonText, { color: primaryText }]}>
               Viagens
             </Text>
@@ -452,7 +700,6 @@ export default function Detalhes() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Cabeçalho da viagem */}
           <View style={[styles.heroCard, { backgroundColor: cardBackground }]}>
             <View style={styles.heroTop}>
               <View style={styles.heroIcon}>
@@ -475,7 +722,6 @@ export default function Detalhes() {
 
             <View style={styles.heroDestination}>
               <Ionicons name="location" size={17} color={accent} />
-
               <Text
                 style={[styles.heroDestinationText, { color: secondaryText }]}
               >
@@ -484,7 +730,6 @@ export default function Detalhes() {
             </View>
           </View>
 
-          {/* Informações da viagem */}
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
@@ -502,7 +747,6 @@ export default function Detalhes() {
                   "Ex: Férias",
                   "bookmark-outline",
                 )}
-
                 {renderInput(
                   "Destino",
                   destino,
@@ -510,7 +754,6 @@ export default function Detalhes() {
                   "Ex: Rio de Janeiro",
                   "location-outline",
                 )}
-
                 {renderInput(
                   "Transporte",
                   transporte,
@@ -518,7 +761,6 @@ export default function Detalhes() {
                   "Ex: Avião",
                   "car-outline",
                 )}
-
                 {renderInput(
                   "Data",
                   data,
@@ -537,7 +779,6 @@ export default function Detalhes() {
             )}
           </View>
 
-          {/* Hospedagem */}
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
@@ -555,7 +796,6 @@ export default function Detalhes() {
                   "Nome da hospedagem",
                   "business-outline",
                 )}
-
                 {renderInput(
                   "Endereço",
                   hotelEndereco,
@@ -563,7 +803,6 @@ export default function Detalhes() {
                   "Endereço completo",
                   "location-outline",
                 )}
-
                 {renderInput(
                   "Data da hospedagem",
                   hotelData,
@@ -581,7 +820,6 @@ export default function Detalhes() {
             )}
           </View>
 
-          {/* Passeios */}
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
@@ -606,7 +844,6 @@ export default function Detalhes() {
                       size={21}
                       color={accent}
                     />
-
                     <Text style={[styles.listItemText, { color: primaryText }]}>
                       {item}
                     </Text>
@@ -642,7 +879,6 @@ export default function Detalhes() {
                     size={18}
                     color={accent}
                   />
-
                   <TextInput
                     style={[styles.input, { color: primaryText }]}
                     placeholder="Adicionar passeio"
@@ -660,7 +896,6 @@ export default function Detalhes() {
             )}
           </View>
 
-          {/* Orçamento */}
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
@@ -729,7 +964,6 @@ export default function Detalhes() {
                 <Text style={[styles.budgetRowLabel, { color: secondaryText }]}>
                   Orçamento total
                 </Text>
-
                 <Text style={[styles.budgetRowValue, { color: primaryText }]}>
                   {formatarMoeda(converterValor(orcamentoTotal))}
                 </Text>
@@ -742,7 +976,6 @@ export default function Detalhes() {
               <Text style={[styles.budgetRowLabel, { color: secondaryText }]}>
                 Total de gastos
               </Text>
-
               <Text style={[styles.budgetRowValue, { color: primaryText }]}>
                 {formatarMoeda(totalGastos)}
               </Text>
@@ -773,7 +1006,6 @@ export default function Detalhes() {
                         color={accent}
                       />
                     </View>
-
                     <Text style={[styles.listItemText, { color: primaryText }]}>
                       {item.nome}
                     </Text>
@@ -810,7 +1042,6 @@ export default function Detalhes() {
                   ]}
                 >
                   <Ionicons name="create-outline" size={18} color={accent} />
-
                   <TextInput
                     style={[styles.input, { color: primaryText }]}
                     placeholder="Nome do gasto"
@@ -829,7 +1060,6 @@ export default function Detalhes() {
                     ]}
                   >
                     <Ionicons name="cash-outline" size={18} color={accent} />
-
                     <TextInput
                       style={[styles.input, { color: primaryText }]}
                       placeholder="Valor em R$"
@@ -848,7 +1078,6 @@ export default function Detalhes() {
             )}
           </View>
 
-          {/* Botão principal */}
           <Pressable
             style={({ pressed }) => [
               styles.mainButton,
@@ -864,7 +1093,6 @@ export default function Detalhes() {
               size={20}
               color="#FFFFFF"
             />
-
             <Text style={styles.mainButtonText}>
               {editando ? "Salvar alterações" : "Editar informações"}
             </Text>
@@ -892,17 +1120,13 @@ export default function Detalhes() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
+  container: { flex: 1 },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 25,
   },
-
   topBar: {
     height: 58,
     flexDirection: "row",
@@ -910,43 +1134,30 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
   },
-
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
     width: 80,
   },
-
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  topBarTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-  },
-
+  backButtonText: { fontSize: 14, fontWeight: "700" },
+  topBarTitle: { fontSize: 16, fontWeight: "800" },
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 45,
   },
-
   heroCard: {
     padding: 21,
     borderRadius: 20,
     marginBottom: 18,
   },
-
   heroTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 23,
   },
-
   heroIcon: {
     width: 51,
     height: 51,
@@ -955,7 +1166,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   statusTag: {
     flexDirection: "row",
     alignItems: "center",
@@ -965,57 +1175,46 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     gap: 6,
   },
-
   statusDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
     backgroundColor: "#8FA255",
   },
-
   statusText: {
     fontSize: 11,
     fontWeight: "700",
     color: "#8FA255",
   },
-
   heroLabel: {
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.2,
     marginBottom: 7,
   },
-
   heroTitle: {
     fontSize: 25,
     fontWeight: "800",
     letterSpacing: -0.6,
   },
-
   heroDestination: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 9,
   },
-
-  heroDestinationText: {
-    fontSize: 13,
-  },
-
+  heroDestinationText: { fontSize: 13 },
   card: {
     borderRadius: 19,
     padding: 17,
     marginBottom: 16,
   },
-
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     marginBottom: 20,
   },
-
   sectionIcon: {
     width: 43,
     height: 43,
@@ -1023,27 +1222,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   sectionTitle: {
     fontSize: 16,
     fontWeight: "800",
     marginBottom: 4,
   },
-
-  sectionSubtitle: {
-    fontSize: 11,
-  },
-
-  infoGrid: {
-    gap: 18,
-  },
-
+  sectionSubtitle: { fontSize: 11 },
+  infoGrid: { gap: 18 },
   infoItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-
   infoIcon: {
     width: 39,
     height: 39,
@@ -1051,7 +1241,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   label: {
     fontSize: 10,
     fontWeight: "700",
@@ -1059,16 +1248,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 6,
   },
-
-  infoValue: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  field: {
-    marginBottom: 14,
-  },
-
+  infoValue: { fontSize: 14, fontWeight: "600" },
+  field: { marginBottom: 14 },
   inputContainer: {
     minHeight: 47,
     borderWidth: 1,
@@ -1078,13 +1259,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-
-  input: {
-    flex: 1,
-    minHeight: 45,
-    fontSize: 13,
-  },
-
+  input: { flex: 1, minHeight: 45, fontSize: 13 },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1092,31 +1267,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-
   listItemLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     flex: 1,
   },
-
   listItemText: {
     fontSize: 13,
     fontWeight: "600",
     flexShrink: 1,
   },
-
   addRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
     marginTop: 13,
   },
-
-  flexInput: {
-    flex: 1,
-  },
-
+  flexInput: { flex: 1 },
   addButton: {
     width: 47,
     height: 47,
@@ -1125,47 +1293,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  emptyMessage: {
-    fontSize: 12,
-    paddingVertical: 10,
-  },
-
+  emptyMessage: { fontSize: 12, paddingVertical: 10 },
   budgetMain: {
     borderRadius: 16,
     padding: 17,
     marginBottom: 17,
   },
-
   budgetLabel: {
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
-
   budgetBalance: {
     fontSize: 27,
     fontWeight: "800",
     marginTop: 7,
     marginBottom: 15,
   },
-
   progressBackground: {
     height: 7,
     borderRadius: 10,
     overflow: "hidden",
   },
-
-  progressFill: {
-    height: 7,
-    borderRadius: 10,
-  },
-
-  budgetHint: {
-    fontSize: 10,
-    marginTop: 9,
-  },
-
+  progressFill: { height: 7, borderRadius: 10 },
+  budgetHint: { fontSize: 10, marginTop: 9 },
   budgetRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1173,23 +1324,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-
-  budgetRowLabel: {
-    fontSize: 12,
-  },
-
-  budgetRowValue: {
-    fontSize: 13,
-    fontWeight: "800",
-  },
-
+  budgetRowLabel: { fontSize: 12 },
+  budgetRowValue: { fontSize: 13, fontWeight: "800" },
   expensesTitle: {
     fontSize: 14,
     fontWeight: "800",
     marginTop: 20,
     marginBottom: 8,
   },
-
   expenseItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1197,7 +1339,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-
   expenseIcon: {
     width: 32,
     height: 32,
@@ -1206,23 +1347,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   expenseRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-
-  expenseValue: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  expenseForm: {
-    marginTop: 15,
-    gap: 10,
-  },
-
+  expenseValue: { fontSize: 12, fontWeight: "700" },
+  expenseForm: { marginTop: 15, gap: 10 },
   mainButton: {
     height: 53,
     borderRadius: 15,
@@ -1232,23 +1363,16 @@ const styles = StyleSheet.create({
     gap: 9,
     marginTop: 5,
   },
-
   mainButtonText: {
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "800",
   },
-
   cancelButton: {
     alignItems: "center",
     paddingVertical: 15,
   },
-
-  cancelText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
+  cancelText: { fontSize: 12, fontWeight: "700" },
   emptyTitle: {
     fontSize: 18,
     fontWeight: "800",

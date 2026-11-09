@@ -1,8 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Animated,
+  DeviceEventEmitter,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,78 +27,249 @@ type NotificationItem = {
   background: string;
   read: boolean;
   section: "Hoje" | "Anteriores";
+  viagemId?: string;
+};
+
+type NotificationCardProps = {
+  item: NotificationItem;
+  isDark: boolean;
+  cardBackground: string;
+  primaryText: string;
+  secondaryText: string;
+  borderColor: string;
+  accent: string;
+  onPress: () => void;
+  onDelete: () => void;
 };
 
 const STORAGE_KEY = "@tripwise_notificacoes";
+const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
+const SWIPE_DELETE_WIDTH = 92;
 
-const initialNotifications: NotificationItem[] = [
-  {
-    id: "1",
-    title: "Sua viagem está chegando!",
-    message:
-      "Está quase na hora de fazer as malas. Confira os detalhes da sua viagem.",
-    time: "Há 2 horas",
-    category: "viagem",
-    icon: "airplane",
-    color: "#6685D9",
-    background: "#EAF0FF",
-    read: false,
-    section: "Hoje",
-  },
-  {
-    id: "2",
-    title: "Confira sua hospedagem",
-    message:
-      "Não se esqueça de verificar o endereço e os horários de check-in.",
-    time: "Há 5 horas",
-    category: "hospedagem",
-    icon: "bed",
-    color: "#A078D1",
-    background: "#F2EAFE",
-    read: false,
-    section: "Hoje",
-  },
-  {
-    id: "3",
-    title: "Atenção ao orçamento",
-    message: "Seus gastos estão se aproximando do limite planejado.",
-    time: "Hoje, 09:30",
-    category: "orcamento",
-    icon: "wallet",
-    color: "#D69A43",
-    background: "#FFF3E1",
-    read: true,
-    section: "Hoje",
-  },
-  {
-    id: "4",
-    title: "Passeio adicionado",
-    message: "Um novo passeio foi incluído no seu planejamento.",
-    time: "Ontem",
-    category: "passeio",
-    icon: "ticket",
-    color: "#43A68B",
-    background: "#E3F6EF",
-    read: true,
-    section: "Anteriores",
-  },
-  {
-    id: "5",
-    title: "Viagem criada com sucesso",
-    message: "Seu próximo destino já está organizado no TripWise.",
-    time: "Há 3 dias",
-    category: "viagem",
-    icon: "checkmark-circle",
-    color: "#6685D9",
-    background: "#EAF0FF",
-    read: true,
-    section: "Anteriores",
-  },
+const SAMPLE_NOTIFICATIONS = [
+  { id: "1", title: "Sua viagem está chegando!" },
+  { id: "2", title: "Confira sua hospedagem" },
+  { id: "3", title: "Atenção ao orçamento" },
+  { id: "4", title: "Passeio adicionado" },
+  { id: "5", title: "Viagem criada com sucesso" },
 ];
+
+function isSampleNotification(item: NotificationItem) {
+  return SAMPLE_NOTIFICATIONS.some(
+    (sample) => sample.id === item.id && sample.title === item.title,
+  );
+}
+
+// Card com gesto de deslizar para a esquerda.
+function NotificationCard({
+  item,
+  isDark,
+  cardBackground,
+  primaryText,
+  secondaryText,
+  borderColor,
+  accent,
+  onPress,
+  onDelete,
+}: NotificationCardProps) {
+  const [translateX] = useState(() => new Animated.Value(0));
+  const [isOpen, setIsOpen] = useState(false);
+
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const startOffset = useRef(0);
+  const currentDx = useRef(0);
+  const horizontalGesture = useRef(false);
+  const lastSwipeAt = useRef(0);
+
+  const animarPara = (destino: number) => {
+    Animated.spring(translateX, {
+      toValue: destino,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 12,
+    }).start(() => {
+      setIsOpen(destino !== 0);
+    });
+  };
+
+  const fecharAcao = () => {
+    currentDx.current = 0;
+    horizontalGesture.current = false;
+    animarPara(0);
+  };
+
+  // Registra a posição inicial do toque.
+  const handleTouchStart = (event: any) => {
+    startX.current = event.nativeEvent.pageX;
+    startY.current = event.nativeEvent.pageY;
+    startOffset.current = isOpen ? -SWIPE_DELETE_WIDTH : 0;
+    currentDx.current = startOffset.current;
+    horizontalGesture.current = false;
+  };
+
+  // Só assume o gesto quando identifica um movimento horizontal.
+  // Assim, a rolagem vertical continua funcionando normalmente.
+  const handleMoveShouldSetResponder = (event: any) => {
+    const deslocamentoX = event.nativeEvent.pageX - startX.current;
+    const deslocamentoY = event.nativeEvent.pageY - startY.current;
+
+    const movimentoHorizontal =
+      Math.abs(deslocamentoX) > 10 &&
+      Math.abs(deslocamentoX) > Math.abs(deslocamentoY);
+
+    if (movimentoHorizontal) {
+      horizontalGesture.current = true;
+    }
+
+    return movimentoHorizontal;
+  };
+
+  // Atualiza a posição do card enquanto o dedo se movimenta.
+  const handleResponderMove = (event: any) => {
+    if (!horizontalGesture.current) return;
+
+    const deslocamentoX = event.nativeEvent.pageX - startX.current;
+
+    const deslocamento = Math.max(
+      -SWIPE_DELETE_WIDTH,
+      Math.min(0, startOffset.current + deslocamentoX),
+    );
+
+    currentDx.current = deslocamento;
+    translateX.setValue(deslocamento);
+  };
+
+  // Ao soltar, decide se o botão de exclusão deve permanecer aberto.
+  const handleResponderRelease = () => {
+    if (!horizontalGesture.current) return;
+
+    const deveAbrir = currentDx.current < -SWIPE_DELETE_WIDTH / 2;
+
+    horizontalGesture.current = false;
+    lastSwipeAt.current = Date.now();
+
+    animarPara(deveAbrir ? -SWIPE_DELETE_WIDTH : 0);
+  };
+
+  // Se o sistema interromper o gesto, restaura a posição do card.
+  const handleResponderTerminate = () => {
+    if (!horizontalGesture.current) return;
+
+    horizontalGesture.current = false;
+    lastSwipeAt.current = Date.now();
+
+    animarPara(0);
+  };
+
+  // O botão só ganha opacidade conforme o card é arrastado.
+  const deleteOpacity = translateX.interpolate({
+    inputRange: [-SWIPE_DELETE_WIDTH, -10, 0],
+    outputRange: [1, 0, 0],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <View style={styles.swipeContainer}>
+      <View style={styles.deleteActionContainer}>
+        <Animated.View
+          style={[styles.deleteActionWrapper, { opacity: deleteOpacity }]}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Excluir notificação: ${item.title}`}
+            disabled={!isOpen}
+            onPress={() => {
+              fecharAcao();
+              onDelete();
+            }}
+            style={styles.deleteAction}
+          >
+            <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+            <Text style={styles.deleteActionText}>Excluir</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+
+      <Animated.View
+        onTouchStart={handleTouchStart}
+        onMoveShouldSetResponder={handleMoveShouldSetResponder}
+        onMoveShouldSetResponderCapture={handleMoveShouldSetResponder}
+        onResponderMove={handleResponderMove}
+        onResponderRelease={handleResponderRelease}
+        onResponderTerminate={handleResponderTerminate}
+        onResponderTerminationRequest={() => false}
+        style={[
+          styles.notificationCardAnimated,
+          { transform: [{ translateX }] },
+        ]}
+      >
+        <Pressable
+          onPress={() => {
+            // Impede que o término de um arraste seja interpretado
+            // como um toque para abrir os detalhes da viagem.
+            if (Date.now() - lastSwipeAt.current < 400) {
+              return;
+            }
+
+            if (isOpen) {
+              fecharAcao();
+              return;
+            }
+
+            onPress();
+          }}
+          style={[
+            styles.notificationCard,
+            {
+              backgroundColor: cardBackground,
+              borderColor,
+              opacity: item.read ? 0.82 : 1,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.iconContainer,
+              {
+                backgroundColor: isDark ? `${item.color}25` : item.background,
+              },
+            ]}
+          >
+            <Ionicons name={item.icon} size={23} color={item.color} />
+          </View>
+
+          <View style={styles.notificationContent}>
+            <View style={styles.notificationTop}>
+              <Text style={[styles.notificationTitle, { color: primaryText }]}>
+                {item.title}
+              </Text>
+
+              {!item.read && (
+                <View style={[styles.unreadDot, { backgroundColor: accent }]} />
+              )}
+            </View>
+
+            <Text
+              style={[styles.notificationMessage, { color: secondaryText }]}
+            >
+              {item.message}
+            </Text>
+
+            <Text style={[styles.notificationTime, { color: secondaryText }]}>
+              {item.time}
+            </Text>
+          </View>
+        </Pressable>
+      </Animated.View>
+    </View>
+  );
+}
 
 export default function Notificacoes() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const router = useRouter();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [filter, setFilter] = useState<"Todas" | "Não lidas">("Todas");
@@ -102,56 +277,220 @@ export default function Notificacoes() {
 
   const unreadCount = notifications.filter((item) => !item.read).length;
 
-  useEffect(() => {
-    async function loadNotifications() {
-      try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+  // Recarrega as notificações sempre que a aba recebe foco.
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-        if (saved) {
-          setNotifications(JSON.parse(saved));
-        } else {
-          setNotifications(initialNotifications);
-          await AsyncStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(initialNotifications),
-          );
+      async function loadNotifications() {
+        try {
+          setLoading(true);
+
+          const saved = await AsyncStorage.getItem(STORAGE_KEY);
+
+          if (saved) {
+            const parsed: unknown = JSON.parse(saved);
+
+            if (Array.isArray(parsed)) {
+              const validNotifications = parsed.filter(
+                (item): item is NotificationItem =>
+                  item !== null &&
+                  typeof item === "object" &&
+                  typeof item.id === "string" &&
+                  typeof item.title === "string" &&
+                  typeof item.read === "boolean",
+              );
+
+              const cleanedNotifications = validNotifications.filter(
+                (item) => !isSampleNotification(item),
+              );
+
+              if (isActive) {
+                setNotifications(cleanedNotifications);
+              }
+
+              if (cleanedNotifications.length !== validNotifications.length) {
+                await AsyncStorage.setItem(
+                  STORAGE_KEY,
+                  JSON.stringify(cleanedNotifications),
+                );
+
+                DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
+              }
+            } else {
+              if (isActive) {
+                setNotifications([]);
+              }
+
+              await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+              DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
+            }
+          } else {
+            if (isActive) {
+              setNotifications([]);
+            }
+
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+            DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
+          }
+        } catch (error) {
+          console.error("Erro ao carregar notificações:", error);
+
+          if (isActive) {
+            setNotifications([]);
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false);
+          }
         }
-      } catch (error) {
-        console.error("Erro ao carregar notificações:", error);
-        setNotifications(initialNotifications);
-      } finally {
-        setLoading(false);
       }
-    }
 
-    loadNotifications();
-  }, []);
+      loadNotifications();
 
-  useEffect(() => {
-    if (!loading) {
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(notifications)).catch(
-        (error) => console.error("Erro ao salvar notificações:", error),
+      return () => {
+        isActive = false;
+      };
+    }, []),
+  );
+
+  // Atualiza o estado, salva a lista e avisa a Tab Bar.
+  async function salvarNotificacoes(lista: NotificationItem[]) {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(lista));
+
+      setNotifications(lista);
+      DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
+    } catch (error) {
+      console.error("Erro ao salvar notificações:", error);
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível atualizar suas notificações. Tente novamente.",
       );
     }
-  }, [notifications, loading]);
+  }
+
+  async function markAsRead(id: string) {
+    const updated = notifications.map((item) =>
+      item.id === id ? { ...item, read: true } : item,
+    );
+
+    await salvarNotificacoes(updated);
+  }
+
+  async function markAllAsRead() {
+    const updated = notifications.map((item) => ({
+      ...item,
+      read: true,
+    }));
+
+    await salvarNotificacoes(updated);
+  }
+
+  // Exclui uma notificação individual.
+  function confirmarExclusao(item: NotificationItem) {
+    Alert.alert(
+      "Excluir notificação",
+      "Deseja realmente excluir esta notificação?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            const updated = notifications.filter(
+              (notification) => notification.id !== item.id,
+            );
+
+            void salvarNotificacoes(updated);
+          },
+        },
+      ],
+    );
+  }
+
+  // Exclui todas as notificações armazenadas.
+  function confirmarExclusaoTodas() {
+    if (notifications.length === 0) return;
+
+    Alert.alert(
+      "Excluir todas as notificações",
+      "Tem certeza de que deseja excluir todas as notificações? Essa ação não poderá ser desfeita.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Excluir todas",
+          style: "destructive",
+          onPress: () => {
+            void salvarNotificacoes([]);
+          },
+        },
+      ],
+    );
+  }
+
+  // Marca a notificação como lida e abre a viagem relacionada.
+  async function handleNotificationPress(item: NotificationItem) {
+    await markAsRead(item.id);
+
+    if (!item.viagemId) return;
+
+    try {
+      const dados = await AsyncStorage.getItem("@viagens");
+
+      if (!dados) {
+        Alert.alert(
+          "Viagem não encontrada",
+          "Essa viagem não está mais disponível.",
+        );
+        return;
+      }
+
+      const viagens: unknown = JSON.parse(dados);
+
+      if (!Array.isArray(viagens)) {
+        Alert.alert(
+          "Viagem não encontrada",
+          "Não foi possível localizar essa viagem.",
+        );
+        return;
+      }
+
+      const viagemExiste = viagens.some(
+        (viagem: { id?: string }) => viagem?.id === item.viagemId,
+      );
+
+      if (!viagemExiste) {
+        Alert.alert(
+          "Viagem não disponível",
+          "Essa viagem foi excluída ou não está mais cadastrada.",
+        );
+        return;
+      }
+
+      router.push({
+        pathname: "/detalhes",
+        params: { id: item.viagemId },
+      });
+    } catch (error) {
+      console.error("Erro ao abrir viagem pela notificação:", error);
+
+      Alert.alert("Erro", "Não foi possível abrir os detalhes dessa viagem.");
+    }
+  }
 
   const filteredNotifications = useMemo(() => {
     return notifications.filter((item) =>
       filter === "Não lidas" ? !item.read : true,
     );
   }, [notifications, filter]);
-
-  function markAsRead(id: string) {
-    setNotifications((current) =>
-      current.map((item) => (item.id === id ? { ...item, read: true } : item)),
-    );
-  }
-
-  function markAllAsRead() {
-    setNotifications((current) =>
-      current.map((item) => ({ ...item, read: true })),
-    );
-  }
 
   const background = isDark ? "#121212" : "#F4F6FA";
   const cardBackground = isDark ? "#1E1E1E" : "#FFFFFF";
@@ -179,19 +518,23 @@ export default function Notificacoes() {
             </Text>
           </View>
 
-          <View style={[styles.countCircle, { backgroundColor: accent }]}>
-            <Text style={styles.countText}>{unreadCount}</Text>
-          </View>
+          {unreadCount > 0 && (
+            <View style={[styles.countCircle, { backgroundColor: accent }]}>
+              <Text style={styles.countText}>{unreadCount}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.summary}>
           <View style={styles.summaryIcon}>
             <Ionicons name="notifications" size={21} color={accent} />
           </View>
+
           <View style={{ flex: 1 }}>
             <Text style={[styles.summaryTitle, { color: primaryText }]}>
               Tudo em um só lugar
             </Text>
+
             <Text style={[styles.summaryDescription, { color: secondaryText }]}>
               Acompanhe atualizações importantes das suas viagens.
             </Text>
@@ -228,11 +571,46 @@ export default function Notificacoes() {
             })}
           </View>
 
-          {unreadCount > 0 && (
-            <Pressable onPress={markAllAsRead}>
-              <Text style={[styles.markAll, { color: accent }]}>Ler todas</Text>
-            </Pressable>
-          )}
+          {/* Ações em uma linha separada para evitar toques acidentais. */}
+          <View style={styles.actions}>
+            {unreadCount > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Marcar todas as notificações como lidas"
+                onPress={markAllAsRead}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.markAllButton,
+                  pressed && styles.actionPressed,
+                ]}
+              >
+                <Ionicons
+                  name="checkmark-done-outline"
+                  size={18}
+                  color={accent}
+                />
+                <Text style={[styles.markAll, { color: accent }]}>
+                  Ler todas
+                </Text>
+              </Pressable>
+            )}
+
+            {notifications.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Excluir todas as notificações"
+                onPress={confirmarExclusaoTodas}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.deleteAllButton,
+                  pressed && styles.actionPressed,
+                ]}
+              >
+                <Ionicons name="trash-outline" size={17} color="#E45B5B" />
+                <Text style={styles.deleteAllText}>Excluir todas</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {loading ? (
@@ -255,15 +633,17 @@ export default function Notificacoes() {
                 color={accent}
               />
             </View>
+
             <Text style={[styles.emptyTitle, { color: primaryText }]}>
               Tudo em dia!
             </Text>
+
             <Text style={[styles.emptyDescription, { color: secondaryText }]}>
               Você não tem notificações pendentes por aqui.
             </Text>
           </View>
         ) : (
-          ["Hoje", "Anteriores"].map((section) => {
+          (["Hoje", "Anteriores"] as const).map((section) => {
             const items = filteredNotifications.filter(
               (item) => item.section === section,
             );
@@ -277,71 +657,18 @@ export default function Notificacoes() {
                 </Text>
 
                 {items.map((item) => (
-                  <Pressable
+                  <NotificationCard
                     key={item.id}
-                    onPress={() => markAsRead(item.id)}
-                    style={[
-                      styles.notificationCard,
-                      {
-                        backgroundColor: cardBackground,
-                        borderColor: borderColor,
-                        opacity: item.read ? 0.82 : 1,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.iconContainer,
-                        {
-                          backgroundColor: isDark
-                            ? `${item.color}25`
-                            : item.background,
-                        },
-                      ]}
-                    >
-                      <Ionicons name={item.icon} size={23} color={item.color} />
-                    </View>
-
-                    <View style={styles.notificationContent}>
-                      <View style={styles.notificationTop}>
-                        <Text
-                          style={[
-                            styles.notificationTitle,
-                            { color: primaryText },
-                          ]}
-                        >
-                          {item.title}
-                        </Text>
-
-                        {!item.read && (
-                          <View
-                            style={[
-                              styles.unreadDot,
-                              { backgroundColor: accent },
-                            ]}
-                          />
-                        )}
-                      </View>
-
-                      <Text
-                        style={[
-                          styles.notificationMessage,
-                          { color: secondaryText },
-                        ]}
-                      >
-                        {item.message}
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.notificationTime,
-                          { color: secondaryText },
-                        ]}
-                      >
-                        {item.time}
-                      </Text>
-                    </View>
-                  </Pressable>
+                    item={item}
+                    isDark={isDark}
+                    cardBackground={cardBackground}
+                    primaryText={primaryText}
+                    secondaryText={secondaryText}
+                    borderColor={borderColor}
+                    accent={accent}
+                    onPress={() => handleNotificationPress(item)}
+                    onDelete={() => confirmarExclusao(item)}
+                  />
                 ))}
               </View>
             );
@@ -354,6 +681,7 @@ export default function Notificacoes() {
             size={15}
             color={secondaryText}
           />
+
           <Text style={[styles.footerText, { color: secondaryText }]}>
             Sua experiência de viagem, sempre organizada.
           </Text>
@@ -427,9 +755,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   filterHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    alignItems: "stretch",
     marginBottom: 24,
   },
   filters: {
@@ -446,9 +773,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    paddingHorizontal: 4,
+    gap: 16,
+  },
+  markAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#8FA25518",
+  },
   markAll: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  deleteAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  deleteAllText: {
     fontSize: 12,
     fontWeight: "700",
+    color: "#E45B5B",
+  },
+  actionPressed: {
+    opacity: 0.65,
+    transform: [{ scale: 0.96 }],
   },
   section: {
     marginBottom: 25,
@@ -458,12 +821,45 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 13,
   },
+  swipeContainer: {
+    position: "relative",
+    width: "100%",
+    overflow: "hidden",
+    borderRadius: 17,
+    marginBottom: 11,
+  },
+  deleteActionContainer: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  deleteActionWrapper: {
+    width: SWIPE_DELETE_WIDTH,
+    height: "100%",
+  },
+  deleteAction: {
+    flex: 1,
+    backgroundColor: "#E34F4F",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    borderRadius: 14,
+  },
+  deleteActionText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  notificationCardAnimated: {
+    width: "100%",
+    zIndex: 1,
+  },
   notificationCard: {
+    width: "100%",
     flexDirection: "row",
     padding: 15,
     borderRadius: 17,
     borderWidth: 1,
-    marginBottom: 11,
     gap: 13,
   },
   iconContainer: {

@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   Alert,
+  DeviceEventEmitter,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +17,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  agendarLembreteViagem,
+  cancelarLembreteViagem,
+  getNotificationPreferences,
+  NOTIFICATIONS_STORAGE_KEY,
+} from "../../services/notifications";
 
 type Viagem = {
   id: string;
@@ -22,6 +30,56 @@ type Viagem = {
   destino: string;
   transporte: string;
   data: string;
+};
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  category: "viagem" | "hospedagem" | "passeio" | "orcamento";
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  background: string;
+  read: boolean;
+  section: "Hoje" | "Anteriores";
+  viagemId?: string;
+};
+
+const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
+
+// Converte uma data para o formato DD/MM/AAAA.
+const formatarData = (date: Date) => {
+  const dia = String(date.getDate()).padStart(2, "0");
+  const mes = String(date.getMonth() + 1).padStart(2, "0");
+  const ano = date.getFullYear();
+
+  return `${dia}/${mes}/${ano}`;
+};
+
+// Recupera uma data já cadastrada no formato DD/MM/AAAA.
+const converterData = (valor: string): Date | null => {
+  const partes = valor.split("/");
+
+  if (partes.length !== 3) {
+    return null;
+  }
+
+  const dia = Number(partes[0]);
+  const mes = Number(partes[1]);
+  const ano = Number(partes[2]);
+
+  const date = new Date(ano, mes - 1, dia);
+
+  if (
+    date.getDate() !== dia ||
+    date.getMonth() !== mes - 1 ||
+    date.getFullYear() !== ano
+  ) {
+    return null;
+  }
+
+  return date;
 };
 
 export default function Index() {
@@ -35,6 +93,10 @@ export default function Index() {
   const [data, setData] = useState("");
   const [viagens, setViagens] = useState<Viagem[]>([]);
 
+  // Estados do calendário.
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
   const background = isDark ? "#121212" : "#F4F6FA";
   const cardBackground = isDark ? "#1E1E1E" : "#FFFFFF";
   const primaryText = isDark ? "#FFFFFF" : "#172033";
@@ -46,6 +108,7 @@ export default function Index() {
   const carregarViagens = useCallback(async () => {
     try {
       const dados = await AsyncStorage.getItem("@viagens");
+
       if (dados) {
         setViagens(JSON.parse(dados));
       } else {
@@ -62,6 +125,75 @@ export default function Index() {
       carregarViagens();
     }, [carregarViagens]),
   );
+
+  // Abre o calendário com a data atual ou a data já selecionada.
+  const abrirCalendario = () => {
+    const dataAtual = converterData(data);
+
+    setSelectedDate(dataAtual || new Date());
+    setShowDatePicker(true);
+  };
+
+  // Atualiza a data quando o usuário seleciona um dia.
+  const alterarData = (novaData?: Date) => {
+    if (novaData) {
+      setSelectedDate(novaData);
+      setData(formatarData(novaData));
+    }
+  };
+
+  // Registra uma notificação respeitando as preferências do usuário.
+  const registrarNotificacao = async (
+    tipo: "viagemCriada" | "viagemExcluida",
+    titulo: string,
+    mensagem: string,
+    viagemId?: string,
+  ) => {
+    try {
+      const preferences = await getNotificationPreferences();
+
+      if (!preferences[tipo]) {
+        return;
+      }
+
+      const dados = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+
+      let notificacoes: NotificationItem[] = [];
+
+      if (dados) {
+        const parsedData = JSON.parse(dados);
+
+        if (Array.isArray(parsedData)) {
+          notificacoes = parsedData;
+        }
+      }
+
+      const novaNotificacao: NotificationItem = {
+        id: Date.now().toString(),
+        title: titulo,
+        message: mensagem,
+        time: "Agora",
+        category: "viagem",
+        icon: "airplane-outline",
+        color: accent,
+        background: "#8FA25518",
+        read: false,
+        section: "Hoje",
+        viagemId,
+      };
+
+      const listaAtualizada = [novaNotificacao, ...notificacoes];
+
+      await AsyncStorage.setItem(
+        NOTIFICATIONS_STORAGE_KEY,
+        JSON.stringify(listaAtualizada),
+      );
+
+      DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
+    } catch (error) {
+      console.error("Erro ao registrar notificação:", error);
+    }
+  };
 
   const salvarViagem = async () => {
     if (
@@ -86,11 +218,26 @@ export default function Index() {
 
     try {
       await AsyncStorage.setItem("@viagens", JSON.stringify(lista));
+
       setViagens(lista);
       setNomeViagem("");
       setDestino("");
       setTransporte("");
       setData("");
+
+      try {
+        await agendarLembreteViagem(novaViagem);
+      } catch (error) {
+        console.error("Erro ao agendar lembrete da viagem:", error);
+      }
+
+      await registrarNotificacao(
+        "viagemCriada",
+        "Nova viagem adicionada!",
+        `Sua viagem para ${novaViagem.destino} foi cadastrada com sucesso.`,
+        novaViagem.id,
+      );
+
       Alert.alert("Tudo certo!", "Sua viagem foi adicionada.");
     } catch (error) {
       console.error("Erro ao salvar viagem:", error);
@@ -108,11 +255,29 @@ export default function Index() {
           text: "Excluir",
           style: "destructive",
           onPress: async () => {
+            const viagemExcluida = viagens.find((item) => item.id === id);
+
             const lista = viagens.filter((item) => item.id !== id);
 
             try {
               await AsyncStorage.setItem("@viagens", JSON.stringify(lista));
+
               setViagens(lista);
+
+              try {
+                await cancelarLembreteViagem(id);
+              } catch (error) {
+                console.error("Erro ao cancelar lembrete da viagem:", error);
+              }
+
+              if (viagemExcluida) {
+                await registrarNotificacao(
+                  "viagemExcluida",
+                  "Viagem excluída",
+                  `A viagem para ${viagemExcluida.destino} foi removida.`,
+                  viagemExcluida.id,
+                );
+              }
             } catch (error) {
               console.error("Erro ao excluir viagem:", error);
               Alert.alert("Erro", "Não foi possível excluir a viagem.");
@@ -201,14 +366,88 @@ export default function Index() {
           setNomeViagem,
           "bookmark-outline",
         )}
+
         {renderInput("Destino", destino, setDestino, "location-outline")}
+
         {renderInput(
           "Meio de transporte",
           transporte,
           setTransporte,
           "car-outline",
         )}
-        {renderInput("Data da viagem", data, setData, "calendar-outline")}
+
+        {/* Campo de data: abre o calendário em vez do teclado. */}
+        <Pressable
+          style={[
+            styles.inputContainer,
+            { backgroundColor: inputBackground, borderColor },
+          ]}
+          onPress={abrirCalendario}
+          accessibilityRole="button"
+          accessibilityLabel="Selecionar data da viagem"
+        >
+          <Ionicons name="calendar-outline" size={19} color={accent} />
+
+          <Text
+            style={[
+              styles.dateInputText,
+              { color: data ? primaryText : secondaryText },
+            ]}
+          >
+            {data || "Data da viagem"}
+          </Text>
+
+          <Ionicons
+            name="chevron-down-outline"
+            size={17}
+            color={secondaryText}
+          />
+        </Pressable>
+
+        {/* Calendário nativo para iPhone. */}
+        {showDatePicker && Platform.OS === "ios" && (
+          <View
+            style={[
+              styles.datePickerContainer,
+              {
+                backgroundColor: inputBackground,
+                borderColor,
+              },
+            ]}
+          >
+            <Text style={[styles.datePickerTitle, { color: primaryText }]}>
+              Selecione a data da viagem
+            </Text>
+
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="spinner"
+              onValueChange={(_event, novaData) => alterarData(novaData)}
+              locale="pt-BR"
+              textColor={primaryText}
+              style={styles.iosDatePicker}
+            />
+
+            <Pressable
+              style={[styles.datePickerButton, { backgroundColor: accent }]}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <Text style={styles.datePickerButtonText}>Concluir</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Calendário nativo para Android. */}
+        {showDatePicker && Platform.OS === "android" && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="calendar"
+            onValueChange={(_event, novaData) => alterarData(novaData)}
+            onDismiss={() => setShowDatePicker(false)}
+          />
+        )}
 
         <Pressable
           style={({ pressed }) => [
@@ -261,7 +500,6 @@ export default function Index() {
         style={[styles.safeArea, { backgroundColor: background }]}
         edges={["top"]}
       >
-        {/* Cabeçalho personalizado */}
         <View style={[styles.topBar, { borderBottomColor: borderColor }]}>
           <View>
             <Text style={[styles.topBarTitle, { color: primaryText }]}>
@@ -537,6 +775,38 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
     fontSize: 13,
+  },
+  dateInputText: {
+    flex: 1,
+    fontSize: 13,
+  },
+  datePickerContainer: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    alignItems: "center",
+  },
+  datePickerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 5,
+  },
+  iosDatePicker: {
+    width: "100%",
+    height: 150,
+  },
+  datePickerButton: {
+    width: "100%",
+    height: 43,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 5,
+  },
+  datePickerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
   addButton: {
     height: 49,
