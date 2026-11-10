@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
@@ -46,7 +46,63 @@ type NotificationItem = {
   viagemId?: string;
 };
 
+type IconeTransporte = keyof typeof MaterialCommunityIcons.glyphMap;
+
 const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
+
+// Identifica o meio de transporte e retorna seu ícone correspondente.
+const obterIconeTransporte = (transporte: string): IconeTransporte => {
+  const nomeNormalizado = transporte
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (
+    nomeNormalizado.includes("aviao") ||
+    nomeNormalizado.includes("aereo") ||
+    nomeNormalizado.includes("airplane")
+  ) {
+    return "airplane";
+  }
+
+  if (
+    nomeNormalizado.includes("moto") ||
+    nomeNormalizado.includes("motorcycle") ||
+    nomeNormalizado.includes("motorbike")
+  ) {
+    return "motorbike";
+  }
+
+  if (nomeNormalizado.includes("onibus") || nomeNormalizado.includes("bus")) {
+    return "bus";
+  }
+
+  if (nomeNormalizado.includes("trem") || nomeNormalizado.includes("train")) {
+    return "train";
+  }
+
+  if (
+    nomeNormalizado.includes("navio") ||
+    nomeNormalizado.includes("barco") ||
+    nomeNormalizado.includes("cruzeiro") ||
+    nomeNormalizado.includes("ship") ||
+    nomeNormalizado.includes("ferry")
+  ) {
+    return "ferry";
+  }
+
+  if (
+    nomeNormalizado.includes("carro") ||
+    nomeNormalizado.includes("automovel") ||
+    nomeNormalizado.includes("automóvel") ||
+    nomeNormalizado.includes("car")
+  ) {
+    return "car";
+  }
+
+  return "car";
+};
 
 // Converte uma data para o formato DD/MM/AAAA.
 const formatarData = (date: Date) => {
@@ -527,102 +583,121 @@ export default function Index() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.tripCard,
-                { backgroundColor: cardBackground, borderColor },
-              ]}
-            >
-              <Pressable
-                style={styles.tripMain}
-                onPress={() =>
-                  router.push({
-                    pathname: "/detalhes",
-                    params: { id: item.id },
-                  })
-                }
-              >
-                <View style={styles.tripIcon}>
-                  <Ionicons name="airplane-outline" size={23} color={accent} />
-                </View>
+          renderItem={({ item }) => {
+            const iconeTransporte = obterIconeTransporte(item.transporte);
 
-                <View style={styles.tripInfo}>
+            return (
+              <View
+                style={[
+                  styles.tripCard,
+                  { backgroundColor: cardBackground, borderColor },
+                ]}
+              >
+                <Pressable
+                  style={styles.tripMain}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/detalhes",
+                      params: { id: item.id },
+                    })
+                  }
+                >
+                  <View style={styles.tripIcon}>
+                    <MaterialCommunityIcons
+                      name={iconeTransporte}
+                      size={25}
+                      color={accent}
+                    />
+                  </View>
+
+                  <View style={styles.tripInfo}>
+                    <Text
+                      style={[styles.tripName, { color: primaryText }]}
+                      numberOfLines={1}
+                    >
+                      {item.nome}
+                    </Text>
+
+                    <View style={styles.tripDetail}>
+                      <Ionicons
+                        name="location-outline"
+                        size={14}
+                        color={secondaryText}
+                      />
+                      <Text
+                        style={[
+                          styles.tripDetailText,
+                          { color: secondaryText },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.destino}
+                      </Text>
+                    </View>
+
+                    <View style={styles.tripDetail}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={14}
+                        color={secondaryText}
+                      />
+                      <Text
+                        style={[
+                          styles.tripDetailText,
+                          { color: secondaryText },
+                        ]}
+                      >
+                        {item.data}
+                      </Text>
+                    </View>
+
+                    <View style={styles.tripDetail}>
+                      <MaterialCommunityIcons
+                        name={iconeTransporte}
+                        size={14}
+                        color={secondaryText}
+                      />
+                      <Text
+                        style={[
+                          styles.tripDetailText,
+                          { color: secondaryText },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.transporte}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={secondaryText}
+                  />
+                </Pressable>
+
+                <View
+                  style={[styles.cardDivider, { backgroundColor: borderColor }]}
+                />
+
+                <View style={styles.tripActions}>
                   <Text
-                    style={[styles.tripName, { color: primaryText }]}
-                    numberOfLines={1}
+                    style={[styles.tripActionHint, { color: secondaryText }]}
                   >
-                    {item.nome}
+                    Ver detalhes da viagem
                   </Text>
 
-                  <View style={styles.tripDetail}>
-                    <Ionicons
-                      name="location-outline"
-                      size={14}
-                      color={secondaryText}
-                    />
-                    <Text
-                      style={[styles.tripDetailText, { color: secondaryText }]}
-                      numberOfLines={1}
-                    >
-                      {item.destino}
-                    </Text>
-                  </View>
-
-                  <View style={styles.tripDetail}>
-                    <Ionicons
-                      name="calendar-outline"
-                      size={14}
-                      color={secondaryText}
-                    />
-                    <Text
-                      style={[styles.tripDetailText, { color: secondaryText }]}
-                    >
-                      {item.data}
-                    </Text>
-                  </View>
-
-                  <View style={styles.tripDetail}>
-                    <Ionicons
-                      name="car-outline"
-                      size={14}
-                      color={secondaryText}
-                    />
-                    <Text
-                      style={[styles.tripDetailText, { color: secondaryText }]}
-                      numberOfLines={1}
-                    >
-                      {item.transporte}
-                    </Text>
-                  </View>
+                  <Pressable
+                    onPress={() => deletarViagem(item.id)}
+                    hitSlop={10}
+                    style={styles.deleteButton}
+                  >
+                    <Ionicons name="trash-outline" size={19} color="#D96B6B" />
+                  </Pressable>
                 </View>
-
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={secondaryText}
-                />
-              </Pressable>
-
-              <View
-                style={[styles.cardDivider, { backgroundColor: borderColor }]}
-              />
-
-              <View style={styles.tripActions}>
-                <Text style={[styles.tripActionHint, { color: secondaryText }]}>
-                  Ver detalhes da viagem
-                </Text>
-
-                <Pressable
-                  onPress={() => deletarViagem(item.id)}
-                  hitSlop={10}
-                  style={styles.deleteButton}
-                >
-                  <Ionicons name="trash-outline" size={19} color="#D96B6B" />
-                </Pressable>
               </View>
-            </View>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <View
               style={[styles.emptyCard, { backgroundColor: cardBackground }]}

@@ -4,7 +4,7 @@
 
 O **TripWise** é um aplicativo de planejamento e organização de viagens desenvolvido com **React Native** e **Expo Router**.
 
-O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios e receber notificações importantes sobre suas viagens.
+O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios, acompanhar despesas e receber notificações importantes sobre suas viagens.
 
 ## ✨ Funcionalidades
 
@@ -13,15 +13,27 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Cadastro de viagens com destino, data e meio de transporte.
 - Edição e exclusão de viagens.
 - Visualização de informações detalhadas de cada viagem.
+- Gerenciamento de informações de hospedagem, incluindo nome, endereço e período de estadia.
 - Navegação entre a lista de viagens e seus respectivos detalhes.
 
 ### 💰 Controle Financeiro
 
 - Definição de orçamento total por viagem.
-- Registro e acompanhamento de gastos.
+- Registro e acompanhamento de gastos individuais.
 - Cálculo do saldo restante em tempo real.
-- Valores formatados em Reais (R$).
+- Acompanhamento do percentual do orçamento utilizado.
+- Conversão e exibição dos valores conforme a moeda selecionada.
 - Notificações quando o orçamento atinge 80% ou ultrapassa o limite definido.
+
+### 💱 Sistema de Moedas
+
+- Seleção entre três moedas: Real brasileiro (BRL), Dólar americano (USD) e Euro (EUR).
+- Consulta de cotações cambiais por meio de uma API externa.
+- Atualização manual das cotações.
+- Conversão automática de orçamentos e despesas conforme a moeda selecionada.
+- Formatação dos valores financeiros de acordo com a moeda escolhida.
+- Persistência dos valores financeiros em Reais (BRL), utilizados como moeda-base para evitar conversões sucessivas e diferenças acumuladas.
+- Armazenamento da preferência de moeda selecionada.
 
 ### 📍 Planejamento de Passeios
 
@@ -57,7 +69,9 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 ### 🎨 Interface e Experiência do Usuário
 
 - Interface moderna e intuitiva.
-- Suporte automático a modo claro e modo escuro (Light Mode e Dark Mode).
+- Suporte a modo claro (Light Mode) e modo escuro (Dark Mode).
+- Opção de aparência automática, acompanhando as configurações do dispositivo.
+- Preferência de tema salva para manter a escolha do usuário entre sessões.
 - Tab Bar flutuante.
 - Componentes com animações e interações.
 - Seleção de datas com componente nativo.
@@ -71,11 +85,13 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 | Expo                        | Ambiente e ferramentas de desenvolvimento          |
 | Expo Router                 | Navegação baseada em arquivos                      |
 | TypeScript                  | Tipagem estática e segurança no código             |
-| AsyncStorage                | Persistência local de dados                        |
+| AsyncStorage                | Persistência local de dados e preferências         |
 | Expo Notifications          | Gerenciamento e agendamento de notificações locais |
 | React Native Animated       | Animações e interações da interface                |
 | React Native DateTimePicker | Seleção de datas                                   |
 | Ionicons                    | Ícones da interface                                |
+| MaterialCommunityIcons      | Ícones complementares                              |
+| ExchangeRate API            | Consulta de cotações cambiais                      |
 
 ## 📱 Como Executar o Projeto
 
@@ -121,7 +137,11 @@ npx tsc --noEmit
 
 ## 💾 Armazenamento e Notificações
 
-O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, preferências e notificações.
+O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, moeda selecionada e notificações.
+
+Os valores financeiros são armazenados internamente em Reais (BRL). A conversão para Dólar (USD) ou Euro (EUR) acontece conforme a moeda selecionada pelo usuário.
+
+As cotações cambiais são consultadas por meio de uma API externa e armazenadas localmente para utilização no aplicativo.
 
 Os lembretes de viagem são programados localmente por meio do `expo-notifications`. Eles não dependem de um servidor de notificações push remoto.
 

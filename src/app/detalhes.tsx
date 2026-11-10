@@ -1,7 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useCurrency } from "../contexts/CurrencyContext";
 import {
   agendarLembreteViagem,
   getNotificationPreferences,
@@ -58,6 +60,10 @@ type NotificationItem = {
   viagemId?: string;
 };
 
+type DatePickerMode = "viagem" | "checkin" | "checkout" | null;
+
+type IconeTransporte = keyof typeof MaterialCommunityIcons.glyphMap;
+
 type SectionHeaderProps = {
   title: string;
   subtitle: string;
@@ -66,6 +72,58 @@ type SectionHeaderProps = {
   primaryText: string;
   secondaryText: string;
   accent: string;
+};
+
+const obterIconeTransporte = (transporte: string): IconeTransporte => {
+  const nomeNormalizado = transporte
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (
+    nomeNormalizado.includes("aviao") ||
+    nomeNormalizado.includes("aereo") ||
+    nomeNormalizado.includes("airplane")
+  ) {
+    return "airplane";
+  }
+
+  if (
+    nomeNormalizado.includes("moto") ||
+    nomeNormalizado.includes("motorcycle") ||
+    nomeNormalizado.includes("motorbike")
+  ) {
+    return "motorbike";
+  }
+
+  if (nomeNormalizado.includes("onibus") || nomeNormalizado.includes("bus")) {
+    return "bus";
+  }
+
+  if (nomeNormalizado.includes("trem") || nomeNormalizado.includes("train")) {
+    return "train";
+  }
+
+  if (
+    nomeNormalizado.includes("navio") ||
+    nomeNormalizado.includes("barco") ||
+    nomeNormalizado.includes("cruzeiro") ||
+    nomeNormalizado.includes("ship") ||
+    nomeNormalizado.includes("ferry")
+  ) {
+    return "ferry";
+  }
+
+  if (
+    nomeNormalizado.includes("carro") ||
+    nomeNormalizado.includes("automovel") ||
+    nomeNormalizado.includes("car")
+  ) {
+    return "car";
+  }
+
+  return "car";
 };
 
 function SectionHeader({
@@ -118,11 +176,45 @@ function converterValor(valor: string) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+function formatarData(data: Date) {
+  const dia = String(data.getDate()).padStart(2, "0");
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const ano = data.getFullYear();
+
+  return `${dia}/${mes}/${ano}`;
+}
+
+function converterData(valor: string, anoReferencia?: number): Date | null {
+  const correspondencia = valor.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+
+  if (!correspondencia) return null;
+
+  const dia = Number(correspondencia[1]);
+  const mes = Number(correspondencia[2]);
+  const ano = Number(
+    correspondencia[3] || anoReferencia || new Date().getFullYear(),
+  );
+
+  const resultado = new Date(ano, mes - 1, dia, 12, 0, 0);
+
+  if (
+    resultado.getDate() !== dia ||
+    resultado.getMonth() !== mes - 1 ||
+    resultado.getFullYear() !== ano
+  ) {
+    return null;
+  }
+
+  return resultado;
+}
+
 export default function Detalhes() {
   const params = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+
+  const { currency, rates, convertFromBRL, formatAmount } = useCurrency();
 
   const background = isDark ? "#121212" : "#F4F6FA";
   const cardBackground = isDark ? "#1E1E1E" : "#FFFFFF";
@@ -147,12 +239,47 @@ export default function Detalhes() {
   const [passeios, setPasseios] = useState<string[]>([]);
   const [novoPasseio, setNovoPasseio] = useState("");
 
+  // Valor financeiro armazenado internamente em BRL.
   const [orcamentoTotal, setOrcamentoTotal] = useState("0");
+
+  // Valor temporário exibido no campo de edição, na moeda selecionada.
+  const [orcamentoEntrada, setOrcamentoEntrada] = useState("0");
+
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [novoGastoNome, setNovoGastoNome] = useState("");
   const [novoGastoValor, setNovoGastoValor] = useState("");
 
   const [viagemNaoEncontrada, setViagemNaoEncontrada] = useState(false);
+
+  const [datePickerMode, setDatePickerMode] = useState<DatePickerMode>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [hotelCheckin, setHotelCheckin] = useState<Date | null>(null);
+  const [hotelCheckout, setHotelCheckout] = useState<Date | null>(null);
+
+  const avancandoParaCheckout = useRef(false);
+
+  const iconeTransporte = obterIconeTransporte(transporte);
+
+  // Converte um valor informado na moeda selecionada para BRL.
+  const converterParaBRL = (valor: number) => {
+    const taxa = rates[currency];
+
+    if (currency === "BRL") {
+      return valor;
+    }
+
+    if (!taxa || taxa <= 0) {
+      return null;
+    }
+
+    return valor / taxa;
+  };
+
+  // Prepara o valor inicial do campo de edição na moeda selecionada.
+  const formatarValorEntrada = (valorBRL: number) => {
+    return convertFromBRL(valorBRL).toFixed(2);
+  };
 
   const preencherDetalhes = useCallback((viagemAtual: Viagem) => {
     setViagemNaoEncontrada(false);
@@ -196,8 +323,6 @@ export default function Detalhes() {
     }
   }, [params.id, preencherDetalhes]);
 
-  // Carregamento inicial assíncrono para evitar atualizações
-  // de estado diretamente durante a execução do efeito.
   useEffect(() => {
     let ativo = true;
 
@@ -241,11 +366,132 @@ export default function Detalhes() {
     };
   }, [params.id, preencherDetalhes]);
 
+  // Abre a edição e prepara o orçamento uma única vez.
+  const iniciarEdicao = () => {
+    setOrcamentoEntrada(formatarValorEntrada(converterValor(orcamentoTotal)));
+    setEditando(true);
+  };
+
+  const abrirCalendarioViagem = () => {
+    const dataAtual = converterData(data) || new Date();
+
+    setSelectedDate(dataAtual);
+    setDatePickerMode("viagem");
+    setShowDatePicker(true);
+  };
+
+  const abrirCalendarioHospedagem = () => {
+    const anoViagem =
+      converterData(data)?.getFullYear() || new Date().getFullYear();
+
+    const periodo = hotelData.split(/\s+a\s+/i);
+
+    const checkinAtual =
+      converterData(periodo[0] || "", anoViagem) || new Date();
+
+    const checkoutAtual =
+      converterData(periodo[1] || "", anoViagem) || checkinAtual;
+
+    setHotelCheckin(checkinAtual);
+    setHotelCheckout(checkoutAtual);
+    setSelectedDate(checkinAtual);
+    setDatePickerMode("checkin");
+    setShowDatePicker(true);
+  };
+
+  const fecharCalendario = () => {
+    setShowDatePicker(false);
+    setDatePickerMode(null);
+  };
+
+  const alterarDataCalendario = (novaData?: Date) => {
+    if (!novaData || !datePickerMode) return;
+
+    setSelectedDate(novaData);
+
+    if (datePickerMode === "viagem") {
+      if (Platform.OS === "android") {
+        setData(formatarData(novaData));
+        fecharCalendario();
+      }
+
+      return;
+    }
+
+    if (datePickerMode === "checkin") {
+      setHotelCheckin(novaData);
+
+      if (Platform.OS === "android") {
+        avancandoParaCheckout.current = true;
+        setShowDatePicker(false);
+
+        setTimeout(() => {
+          setSelectedDate(novaData);
+          setDatePickerMode("checkout");
+          setShowDatePicker(true);
+        }, 350);
+
+        setTimeout(() => {
+          avancandoParaCheckout.current = false;
+        }, 800);
+      }
+
+      return;
+    }
+
+    if (datePickerMode === "checkout") {
+      if (hotelCheckin && novaData < hotelCheckin) {
+        Alert.alert(
+          "Data inválida",
+          "O check-out não pode ser anterior à data de check-in.",
+        );
+        return;
+      }
+
+      setHotelCheckout(novaData);
+
+      if (Platform.OS === "android") {
+        setHotelData(
+          `${formatarData(hotelCheckin || novaData)} a ${formatarData(novaData)}`,
+        );
+        fecharCalendario();
+      }
+    }
+  };
+
+  const confirmarDataIOS = () => {
+    if (datePickerMode === "viagem") {
+      setData(formatarData(selectedDate));
+      fecharCalendario();
+      return;
+    }
+
+    if (datePickerMode === "checkin") {
+      setHotelCheckin(selectedDate);
+      setDatePickerMode("checkout");
+      setSelectedDate(hotelCheckout || selectedDate);
+      return;
+    }
+
+    if (datePickerMode === "checkout") {
+      if (hotelCheckin && selectedDate < hotelCheckin) {
+        Alert.alert(
+          "Data inválida",
+          "O check-out não pode ser anterior à data de check-in.",
+        );
+        return;
+      }
+
+      setHotelCheckout(selectedDate);
+      setHotelData(
+        `${formatarData(hotelCheckin || selectedDate)} a ${formatarData(selectedDate)}`,
+      );
+      fecharCalendario();
+    }
+  };
+
   const formatarMoeda = (valor: number) => {
-    return valor.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+    return formatAmount(valor);
   };
 
   const totalGastos = gastos.reduce(
@@ -272,14 +518,34 @@ export default function Detalhes() {
   };
 
   const adicionarGasto = () => {
-    const valor = converterValor(novoGastoValor);
+    const valorInformado = converterValor(novoGastoValor);
 
-    if (!novoGastoNome.trim() || !novoGastoValor.trim() || valor <= 0) {
+    if (
+      !novoGastoNome.trim() ||
+      !novoGastoValor.trim() ||
+      valorInformado <= 0
+    ) {
       Alert.alert("Atenção", "Informe o nome e um valor válido para o gasto.");
       return;
     }
 
-    setGastos((atual) => [...atual, { nome: novoGastoNome.trim(), valor }]);
+    const valorEmBRL = converterParaBRL(valorInformado);
+
+    if (valorEmBRL === null) {
+      Alert.alert(
+        "Cotação indisponível",
+        "Não foi possível obter a cotação da moeda selecionada. Atualize as cotações no Perfil e tente novamente.",
+      );
+      return;
+    }
+
+    setGastos((atual) => [
+      ...atual,
+      {
+        nome: novoGastoNome.trim(),
+        valor: valorEmBRL,
+      },
+    ]);
 
     setNovoGastoNome("");
     setNovoGastoValor("");
@@ -289,7 +555,6 @@ export default function Detalhes() {
     setGastos((atual) => atual.filter((_, i) => i !== index));
   };
 
-  // Salva as notificações respeitando as preferências configuradas no Perfil.
   const registrarNotificacoes = async (
     notificacoes: {
       preferencia:
@@ -353,10 +618,8 @@ export default function Detalhes() {
         JSON.stringify([...novasNotificacoes, ...notificacoesSalvas]),
       );
 
-      // Atualiza o contador de notificações não lidas na barra de navegação.
       DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
     } catch (error) {
-      // Uma falha nas notificações não deve impedir o salvamento da viagem.
       console.error("Erro ao registrar notificações:", error);
     }
   };
@@ -367,6 +630,23 @@ export default function Detalhes() {
         "Atenção",
         "Preencha nome, destino, transporte e data da viagem.",
       );
+      return;
+    }
+
+    // Converte o orçamento digitado para BRL somente ao salvar.
+    const valorOrcamentoInformado = converterValor(orcamentoEntrada);
+    const orcamentoEmBRL = converterParaBRL(valorOrcamentoInformado);
+
+    if (orcamentoEmBRL === null) {
+      Alert.alert(
+        "Cotação indisponível",
+        "Não foi possível converter o orçamento para reais. Atualize as cotações no Perfil e tente novamente.",
+      );
+      return;
+    }
+
+    if (valorOrcamentoInformado < 0) {
+      Alert.alert("Atenção", "Informe um orçamento válido.");
       return;
     }
 
@@ -396,7 +676,7 @@ export default function Detalhes() {
         hotelEndereco: hotelEndereco.trim(),
         hotelData: hotelData.trim(),
         passeios: JSON.stringify(passeios),
-        orcamentoTotal,
+        orcamentoTotal: String(orcamentoEmBRL),
         gastos: JSON.stringify(gastos),
       };
 
@@ -404,18 +684,16 @@ export default function Detalhes() {
         v.id === params.id ? novaViagem : v,
       );
 
-      // Primeiro salvamos os dados da viagem.
       await AsyncStorage.setItem("@viagens", JSON.stringify(listaAtualizada));
 
-      // Atualiza o lembrete local conforme a nova data e o destino.
-      // Uma falha no agendamento não impede o salvamento da viagem.
+      setOrcamentoTotal(String(orcamentoEmBRL));
+
       try {
         await agendarLembreteViagem(novaViagem);
       } catch (error) {
         console.error("Erro ao atualizar lembrete da viagem:", error);
       }
 
-      // Comparamos os dados anteriores com os novos.
       const mudouInformacaoPrincipal =
         (viagemAnterior.nome || "") !== novaViagem.nome ||
         (viagemAnterior.destino || "") !== novaViagem.destino ||
@@ -519,7 +797,6 @@ export default function Detalhes() {
         });
       }
 
-      // Alerta de 80%: dispara apenas quando o percentual cruza esse limite.
       if (
         orcamentoNovo > 0 &&
         percentualAnterior < 80 &&
@@ -536,7 +813,6 @@ export default function Detalhes() {
         });
       }
 
-      // Alerta de 100%: dispara quando os gastos ultrapassam o orçamento.
       if (
         orcamentoNovo > 0 &&
         percentualAnterior <= 100 &&
@@ -605,6 +881,46 @@ export default function Detalhes() {
     </View>
   );
 
+  const renderDateInput = (
+    label: string,
+    value: string,
+    onPress: () => void,
+    placeholder: string,
+  ) => (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: secondaryText }]}>{label}</Text>
+
+      <Pressable
+        style={[
+          styles.inputContainer,
+          {
+            backgroundColor: inputBackground,
+            borderColor,
+          },
+        ]}
+        onPress={onPress}
+      >
+        <Ionicons name="calendar-outline" size={18} color={accent} />
+
+        <View style={styles.dateInputTextContainer}>
+          <Text
+            style={[
+              styles.dateInputText,
+              {
+                color: value ? primaryText : secondaryText,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {value || placeholder}
+          </Text>
+        </View>
+
+        <Ionicons name="chevron-down" size={17} color={secondaryText} />
+      </Pressable>
+    </View>
+  );
+
   const renderInfo = (
     label: string,
     value: string,
@@ -629,11 +945,121 @@ export default function Detalhes() {
     </View>
   );
 
+  const renderInfoTransporte = () => (
+    <View style={styles.infoItem}>
+      <View
+        style={[
+          styles.infoIcon,
+          { backgroundColor: isDark ? "#293021" : "#EDF2E5" },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={iconeTransporte}
+          size={21}
+          color={accent}
+        />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.label, { color: secondaryText }]}>Transporte</Text>
+        <Text style={[styles.infoValue, { color: primaryText }]}>
+          {transporte || "Não informado"}
+        </Text>
+      </View>
+    </View>
+  );
+
   const sectionHeaderProps = {
     isDark,
     primaryText,
     secondaryText,
     accent,
+  };
+
+  const tituloCalendario =
+    datePickerMode === "viagem"
+      ? "Data da viagem"
+      : datePickerMode === "checkin"
+        ? "Selecione o check-in"
+        : "Selecione o check-out";
+
+  const renderCalendarioIOS = () => {
+    if (!showDatePicker || Platform.OS !== "ios") return null;
+
+    return (
+      <View
+        style={[
+          styles.card,
+          styles.datePickerCard,
+          { backgroundColor: cardBackground },
+        ]}
+      >
+        <View style={styles.datePickerHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.datePickerTitle, { color: primaryText }]}>
+              {tituloCalendario}
+            </Text>
+
+            <Text style={[styles.datePickerSubtitle, { color: secondaryText }]}>
+              {datePickerMode === "checkin"
+                ? "Escolha a data de entrada no hotel."
+                : datePickerMode === "checkout"
+                  ? `Check-in: ${hotelCheckin ? formatarData(hotelCheckin) : "Não selecionado"}`
+                  : "Escolha quando sua viagem começa."}
+            </Text>
+          </View>
+
+          <Pressable onPress={fecharCalendario} hitSlop={10}>
+            <Ionicons
+              name="close-circle-outline"
+              size={25}
+              color={secondaryText}
+            />
+          </Pressable>
+        </View>
+
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="spinner"
+          onValueChange={(_event, novaData) => {
+            if (novaData) {
+              setSelectedDate(novaData);
+            }
+          }}
+          locale="pt-BR"
+          textColor={primaryText}
+          style={styles.iosDatePicker}
+          minimumDate={
+            datePickerMode === "checkout"
+              ? hotelCheckin || undefined
+              : undefined
+          }
+        />
+
+        <View style={styles.datePickerButtons}>
+          <Pressable
+            style={[styles.datePickerCancel, { borderColor: borderColor }]}
+            onPress={fecharCalendario}
+          >
+            <Text
+              style={[styles.datePickerCancelText, { color: secondaryText }]}
+            >
+              Cancelar
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.datePickerConfirm, { backgroundColor: accent }]}
+            onPress={confirmarDataIOS}
+          >
+            <Text style={styles.datePickerConfirmText}>
+              {datePickerMode === "checkin" ? "Próximo: check-out" : "Concluir"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   };
 
   if (loading) {
@@ -695,6 +1121,24 @@ export default function Detalhes() {
           <View style={{ width: 80 }} />
         </View>
 
+        {showDatePicker && Platform.OS === "android" && (
+          <DateTimePicker
+            key={datePickerMode || "date"}
+            value={selectedDate}
+            mode="date"
+            display="calendar"
+            onValueChange={(_event, novaData) =>
+              alterarDataCalendario(novaData)
+            }
+            onDismiss={() => {
+              if (!avancandoParaCheckout.current) {
+                setShowDatePicker(false);
+                setDatePickerMode(null);
+              }
+            }}
+          />
+        )}
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -703,7 +1147,11 @@ export default function Detalhes() {
           <View style={[styles.heroCard, { backgroundColor: cardBackground }]}>
             <View style={styles.heroTop}>
               <View style={styles.heroIcon}>
-                <Ionicons name="airplane" size={28} color="#FFFFFF" />
+                <MaterialCommunityIcons
+                  name={iconeTransporte}
+                  size={29}
+                  color="#FFFFFF"
+                />
               </View>
 
               <View style={styles.statusTag}>
@@ -761,19 +1209,20 @@ export default function Detalhes() {
                   "Ex: Avião",
                   "car-outline",
                 )}
-                {renderInput(
+                {renderDateInput(
                   "Data",
                   data,
-                  setData,
-                  "Ex: 20/12/2026",
-                  "calendar-outline",
+                  abrirCalendarioViagem,
+                  "Selecione a data da viagem",
                 )}
+
+                {datePickerMode === "viagem" && renderCalendarioIOS()}
               </>
             ) : (
               <View style={styles.infoGrid}>
                 {renderInfo("Nome", nome, "bookmark-outline")}
                 {renderInfo("Destino", destino, "location-outline")}
-                {renderInfo("Transporte", transporte, "car-outline")}
+                {renderInfoTransporte()}
                 {renderInfo("Data", data, "calendar-outline")}
               </View>
             )}
@@ -803,13 +1252,16 @@ export default function Detalhes() {
                   "Endereço completo",
                   "location-outline",
                 )}
-                {renderInput(
+                {renderDateInput(
                   "Data da hospedagem",
                   hotelData,
-                  setHotelData,
-                  "Ex: 20/12 a 25/12",
-                  "calendar-outline",
+                  abrirCalendarioHospedagem,
+                  "Selecione check-in e check-out",
                 )}
+
+                {(datePickerMode === "checkin" ||
+                  datePickerMode === "checkout") &&
+                  renderCalendarioIOS()}
               </>
             ) : (
               <View style={styles.infoGrid}>
@@ -949,14 +1401,26 @@ export default function Detalhes() {
             </View>
 
             {editando ? (
-              renderInput(
-                "Orçamento total (R$)",
-                orcamentoTotal,
-                setOrcamentoTotal,
-                "Ex: 5000",
-                "wallet-outline",
-                "numeric",
-              )
+              <>
+                {renderInput(
+                  `Orçamento total (${currency})`,
+                  orcamentoEntrada,
+                  setOrcamentoEntrada,
+                  "Informe o orçamento",
+                  "wallet-outline",
+                  "numeric",
+                )}
+
+                {currency !== "BRL" &&
+                  (!rates[currency] || rates[currency] <= 0) && (
+                    <Text
+                      style={[styles.currencyWarning, { color: "#D99A42" }]}
+                    >
+                      Cotação indisponível. Atualize as cotações no Perfil para
+                      editar valores nesta moeda.
+                    </Text>
+                  )}
+              </>
             ) : (
               <View
                 style={[styles.budgetRow, { borderBottomColor: borderColor }]}
@@ -965,7 +1429,9 @@ export default function Detalhes() {
                   Orçamento total
                 </Text>
                 <Text style={[styles.budgetRowValue, { color: primaryText }]}>
-                  {formatarMoeda(converterValor(orcamentoTotal))}
+                  {formatarMoeda(
+                    convertFromBRL(0) + converterValor(orcamentoTotal),
+                  )}
                 </Text>
               </View>
             )}
@@ -1062,7 +1528,7 @@ export default function Detalhes() {
                     <Ionicons name="cash-outline" size={18} color={accent} />
                     <TextInput
                       style={[styles.input, { color: primaryText }]}
-                      placeholder="Valor em R$"
+                      placeholder={`Valor em ${currency}`}
                       placeholderTextColor={secondaryText}
                       keyboardType="decimal-pad"
                       value={novoGastoValor}
@@ -1086,7 +1552,7 @@ export default function Detalhes() {
                 opacity: pressed ? 0.85 : 1,
               },
             ]}
-            onPress={() => (editando ? salvarEdicao() : setEditando(true))}
+            onPress={() => (editando ? salvarEdicao() : iniciarEdicao())}
           >
             <Ionicons
               name={editando ? "save-outline" : "create-outline"}
@@ -1102,6 +1568,7 @@ export default function Detalhes() {
             <Pressable
               style={styles.cancelButton}
               onPress={() => {
+                fecharCalendario();
                 setEditando(false);
                 carregarDetalhesViagem();
               }}
@@ -1260,6 +1727,65 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   input: { flex: 1, minHeight: 45, fontSize: 13 },
+  dateInputTextContainer: {
+    flex: 1,
+    minHeight: 47,
+    justifyContent: "center",
+  },
+  dateInputText: {
+    fontSize: 13,
+  },
+  datePickerCard: {
+    paddingTop: 19,
+  },
+  datePickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 10,
+  },
+  datePickerTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 5,
+  },
+  datePickerSubtitle: {
+    fontSize: 11,
+  },
+  iosDatePicker: {
+    height: 165,
+    alignSelf: "center",
+    width: "100%",
+  },
+  datePickerButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  datePickerCancel: {
+    flex: 1,
+    height: 45,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  datePickerCancelText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  datePickerConfirm: {
+    flex: 1.4,
+    height: 45,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  datePickerConfirmText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+  },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1354,6 +1880,12 @@ const styles = StyleSheet.create({
   },
   expenseValue: { fontSize: 12, fontWeight: "700" },
   expenseForm: { marginTop: 15, gap: 10 },
+  currencyWarning: {
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: -5,
+    marginBottom: 10,
+  },
   mainButton: {
     height: 53,
     borderRadius: 15,

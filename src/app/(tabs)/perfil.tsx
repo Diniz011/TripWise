@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CurrencyCode, useCurrency } from "../../contexts/CurrencyContext";
+import { ThemeMode, useTheme } from "../../contexts/ThemeContext";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   getNotificationPreferences,
@@ -19,15 +21,75 @@ import {
   saveNotificationPreferences,
 } from "../../services/notifications";
 
+const THEME_OPTIONS: {
+  value: ThemeMode;
+  title: string;
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  {
+    value: "light",
+    title: "Claro",
+    description: "Utilizar sempre o tema claro.",
+    icon: "sunny-outline",
+  },
+  {
+    value: "dark",
+    title: "Escuro",
+    description: "Utilizar sempre o tema escuro.",
+    icon: "moon-outline",
+  },
+  {
+    value: "system",
+    title: "Automático",
+    description: "Acompanhar a aparência do iPhone.",
+    icon: "phone-portrait-outline",
+  },
+];
+
+const CURRENCY_OPTIONS: {
+  value: CurrencyCode;
+  title: string;
+  description: string;
+  symbol: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  {
+    value: "BRL",
+    title: "Real brasileiro",
+    description: "Moeda do Brasil",
+    symbol: "R$",
+    icon: "cash-outline",
+  },
+  {
+    value: "USD",
+    title: "Dólar americano",
+    description: "Moeda dos Estados Unidos",
+    symbol: "US$",
+    icon: "logo-usd",
+  },
+  {
+    value: "EUR",
+    title: "Euro",
+    description: "Moeda da União Europeia",
+    symbol: "€",
+    icon: "logo-euro",
+  },
+];
+
 export default function Perfil() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { theme, isDark, setTheme } = useTheme();
+
+  const { currency, rates, loadingRates, setCurrency, refreshRates } =
+    useCurrency();
 
   const [preferences, setPreferences] = useState<NotificationPreferences>(
     DEFAULT_NOTIFICATION_PREFERENCES,
   );
   const [loadingPreferences, setLoadingPreferences] = useState(true);
   const [savingPreference, setSavingPreference] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
+  const [savingCurrency, setSavingCurrency] = useState(false);
 
   const preferencesRef = useRef<NotificationPreferences>(
     DEFAULT_NOTIFICATION_PREFERENCES,
@@ -43,6 +105,7 @@ export default function Perfil() {
     border: isDark ? "#333333" : "#ECEEF2",
     green: "#8FA255",
     iconBackground: isDark ? "#292D22" : "#F0F3E8",
+    selectedBackground: isDark ? "#292D22" : "#F5F7EF",
   };
 
   const styles = createStyles(colors);
@@ -67,7 +130,7 @@ export default function Perfil() {
       }
     }
 
-    loadPreferences();
+    void loadPreferences();
 
     return () => {
       mountedRef.current = false;
@@ -118,6 +181,57 @@ export default function Perfil() {
         setSavingPreference(false);
       }
     }
+  }
+
+  async function handleThemeChange(newTheme: ThemeMode) {
+    if (newTheme === theme || savingTheme) {
+      return;
+    }
+
+    setSavingTheme(true);
+
+    try {
+      await setTheme(newTheme);
+    } catch (error) {
+      console.error("Erro ao alterar aparência:", error);
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível alterar a aparência. Tente novamente.",
+      );
+    } finally {
+      if (mountedRef.current) {
+        setSavingTheme(false);
+      }
+    }
+  }
+
+  async function handleCurrencyChange(newCurrency: CurrencyCode) {
+    if (newCurrency === currency || savingCurrency) {
+      return;
+    }
+
+    setSavingCurrency(true);
+
+    try {
+      await setCurrency(newCurrency);
+    } catch (error) {
+      console.error("Erro ao alterar moeda:", error);
+
+      Alert.alert("Erro", "Não foi possível alterar a moeda. Tente novamente.");
+    } finally {
+      if (mountedRef.current) {
+        setSavingCurrency(false);
+      }
+    }
+  }
+
+  async function handleRefreshRates() {
+    if (loadingRates) {
+      return;
+    }
+
+    await refreshRates();
   }
 
   const notificationGroups = [
@@ -189,6 +303,19 @@ export default function Perfil() {
     },
   ];
 
+  const currentThemeLabel =
+    theme === "light"
+      ? "Tema claro"
+      : theme === "dark"
+        ? "Tema escuro"
+        : "Automático";
+
+  const currentCurrency = CURRENCY_OPTIONS.find(
+    (option) => option.value === currency,
+  );
+
+  const selectedRate = rates[currency];
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -240,21 +367,130 @@ export default function Perfil() {
           <Text style={styles.sectionTitle}>Preferências</Text>
 
           <View style={styles.sectionCard}>
-            <View style={styles.preferenceRow}>
-              <View style={styles.preferenceIcon}>
-                <Ionicons name="cash-outline" size={21} color={colors.green} />
+            {/* MOEDA */}
+            <View style={styles.currencySection}>
+              <View style={styles.preferenceRow}>
+                <View style={styles.preferenceIcon}>
+                  <Ionicons
+                    name="cash-outline"
+                    size={21}
+                    color={colors.green}
+                  />
+                </View>
+
+                <View style={styles.preferenceInfo}>
+                  <Text style={styles.preferenceTitle}>Moeda</Text>
+                  <Text style={styles.preferenceDescription}>
+                    {currentCurrency?.title} ({currentCurrency?.symbol})
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.preferenceInfo}>
-                <Text style={styles.preferenceTitle}>Moeda</Text>
-                <Text style={styles.preferenceDescription}>
-                  Real brasileiro (R$)
-                </Text>
+              <View style={styles.currencyOptions}>
+                {CURRENCY_OPTIONS.map((option) => {
+                  const selected = currency === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.currencyOption,
+                        selected && styles.currencyOptionSelected,
+                      ]}
+                      onPress={() => {
+                        void handleCurrencyChange(option.value);
+                      }}
+                      disabled={savingCurrency}
+                    >
+                      <View style={styles.currencyOptionIcon}>
+                        <Ionicons
+                          name={option.icon}
+                          size={20}
+                          color={selected ? colors.green : colors.secondary}
+                        />
+                      </View>
+
+                      <View style={styles.currencyOptionInfo}>
+                        <Text style={styles.currencyOptionTitle}>
+                          {option.title}
+                        </Text>
+                        <Text style={styles.currencyOptionDescription}>
+                          {option.description}
+                        </Text>
+                      </View>
+
+                      <View style={styles.currencyOptionRight}>
+                        <Text style={styles.currencySymbol}>
+                          {option.symbol}
+                        </Text>
+
+                        <View
+                          style={[
+                            styles.radioOuter,
+                            selected && styles.radioOuterSelected,
+                          ]}
+                        >
+                          {selected && <View style={styles.radioInner} />}
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </View>
+
+              <View style={styles.exchangeRateContainer}>
+                <View style={styles.exchangeRateInfo}>
+                  <Ionicons
+                    name="trending-up-outline"
+                    size={17}
+                    color={colors.green}
+                  />
+
+                  <View style={styles.exchangeRateTextContainer}>
+                    <Text style={styles.exchangeRateTitle}>
+                      Cotação em relação ao Real
+                    </Text>
+
+                    <Text style={styles.exchangeRateValue}>
+                      {currency === "BRL"
+                        ? "Moeda base"
+                        : selectedRate > 0
+                          ? `1 BRL = ${selectedRate.toFixed(4)} ${currency}`
+                          : "Cotação indisponível"}
+                    </Text>
+                  </View>
+                </View>
+
+                <Pressable
+                  style={styles.refreshRatesButton}
+                  onPress={() => {
+                    void handleRefreshRates();
+                  }}
+                  disabled={loadingRates}
+                >
+                  {loadingRates ? (
+                    <ActivityIndicator size="small" color={colors.green} />
+                  ) : (
+                    <Ionicons
+                      name="refresh-outline"
+                      size={19}
+                      color={colors.green}
+                    />
+                  )}
+                </Pressable>
+              </View>
+
+              {savingCurrency && (
+                <View style={styles.currencySaving}>
+                  <ActivityIndicator size="small" color={colors.green} />
+                  <Text style={styles.loadingText}>Salvando moeda...</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.divider} />
 
+            {/* IDIOMA */}
             <View style={styles.preferenceRow}>
               <View style={styles.preferenceIcon}>
                 <Ionicons
@@ -274,17 +510,77 @@ export default function Perfil() {
 
             <View style={styles.divider} />
 
-            <View style={styles.preferenceRow}>
-              <View style={styles.preferenceIcon}>
-                <Ionicons name="moon-outline" size={21} color={colors.green} />
+            {/* APARÊNCIA */}
+            <View style={styles.themeSection}>
+              <View style={styles.themeHeader}>
+                <View style={styles.preferenceIcon}>
+                  <Ionicons
+                    name="color-palette-outline"
+                    size={21}
+                    color={colors.green}
+                  />
+                </View>
+
+                <View style={styles.preferenceInfo}>
+                  <Text style={styles.preferenceTitle}>Aparência</Text>
+                  <Text style={styles.preferenceDescription}>
+                    {currentThemeLabel}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.preferenceInfo}>
-                <Text style={styles.preferenceTitle}>Aparência</Text>
-                <Text style={styles.preferenceDescription}>
-                  {isDark ? "Tema escuro" : "Tema claro"}
-                </Text>
+              <View style={styles.themeOptions}>
+                {THEME_OPTIONS.map((option) => {
+                  const selected = theme === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.themeOption,
+                        selected && styles.themeOptionSelected,
+                      ]}
+                      onPress={() => {
+                        void handleThemeChange(option.value);
+                      }}
+                      disabled={savingTheme}
+                    >
+                      <View style={styles.themeOptionIcon}>
+                        <Ionicons
+                          name={option.icon}
+                          size={20}
+                          color={selected ? colors.green : colors.secondary}
+                        />
+                      </View>
+
+                      <View style={styles.themeOptionInfo}>
+                        <Text style={styles.themeOptionTitle}>
+                          {option.title}
+                        </Text>
+                        <Text style={styles.themeOptionDescription}>
+                          {option.description}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.radioOuter,
+                          selected && styles.radioOuterSelected,
+                        ]}
+                      >
+                        {selected && <View style={styles.radioInner} />}
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </View>
+
+              {savingTheme && (
+                <View style={styles.themeSaving}>
+                  <ActivityIndicator size="small" color={colors.green} />
+                  <Text style={styles.loadingText}>Aplicando aparência...</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -445,6 +741,7 @@ function createStyles(colors: {
   border: string;
   green: string;
   iconBackground: string;
+  selectedBackground: string;
 }) {
   return StyleSheet.create({
     safeArea: {
@@ -588,6 +885,171 @@ function createStyles(colors: {
     divider: {
       height: 1,
       backgroundColor: colors.border,
+    },
+    currencySection: {
+      paddingBottom: 16,
+    },
+    currencyOptions: {
+      gap: 9,
+      marginBottom: 15,
+    },
+    currencyOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 11,
+    },
+    currencyOptionSelected: {
+      backgroundColor: colors.selectedBackground,
+      borderColor: colors.green,
+    },
+    currencyOptionIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 11,
+      backgroundColor: colors.iconBackground,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    currencyOptionInfo: {
+      flex: 1,
+    },
+    currencyOptionTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    currencyOptionDescription: {
+      fontSize: 11,
+      color: colors.secondary,
+      marginTop: 3,
+    },
+    currencyOptionRight: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 10,
+    },
+    currencySymbol: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.secondary,
+    },
+    exchangeRateContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: 12,
+      borderRadius: 13,
+      backgroundColor: colors.iconBackground,
+    },
+    exchangeRateInfo: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+      flex: 1,
+    },
+    exchangeRateTextContainer: {
+      flex: 1,
+    },
+    exchangeRateTitle: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    exchangeRateValue: {
+      fontSize: 11,
+      color: colors.secondary,
+      marginTop: 3,
+    },
+    refreshRatesButton: {
+      width: 35,
+      height: 35,
+      borderRadius: 11,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.card,
+    },
+    currencySaving: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      marginTop: 12,
+    },
+    themeSection: {
+      paddingTop: 16,
+      paddingBottom: 17,
+    },
+    themeHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 13,
+      marginBottom: 15,
+    },
+    themeOptions: {
+      gap: 9,
+    },
+    themeOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 11,
+    },
+    themeOptionSelected: {
+      backgroundColor: colors.selectedBackground,
+      borderColor: colors.green,
+    },
+    themeOptionIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 11,
+      backgroundColor: colors.iconBackground,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    themeOptionInfo: {
+      flex: 1,
+    },
+    themeOptionTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    themeOptionDescription: {
+      fontSize: 11,
+      color: colors.secondary,
+      marginTop: 3,
+    },
+    radioOuter: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: colors.secondary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    radioOuterSelected: {
+      borderColor: colors.green,
+    },
+    radioInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.green,
+    },
+    themeSaving: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      marginTop: 12,
     },
     notificationHeader: {
       flexDirection: "row",
