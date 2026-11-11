@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCurrency } from "../contexts/CurrencyContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import {
   agendarLembreteViagem,
   getNotificationPreferences,
@@ -26,6 +27,336 @@ import {
 } from "../services/notifications";
 
 const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
+const TRIPS_STORAGE_KEY = "@viagens";
+
+const DETAIL_TRANSLATIONS = {
+  "pt-BR": {
+    error: "Erro",
+    loadError: "Não foi possível carregar os detalhes da viagem.",
+    invalidDate: "Data inválida",
+    checkoutBeforeCheckin:
+      "O check-out não pode ser anterior à data de check-in.",
+    attention: "Atenção",
+    expenseValidation: "Informe o nome e um valor válido para o gasto.",
+    quoteUnavailable: "Cotação indisponível",
+    quoteExpenseError:
+      "Não foi possível obter a cotação da moeda selecionada. Atualize as cotações no Perfil e tente novamente.",
+    fillTrip: "Preencha nome, destino, transporte e data da viagem.",
+    budgetQuoteError:
+      "Não foi possível converter o orçamento para reais. Atualize as cotações no Perfil e tente novamente.",
+    budgetValidation: "Informe um orçamento válido.",
+    tripsNotFound: "Não foi possível encontrar suas viagens.",
+    tripNotFound: "Não foi possível encontrar essa viagem.",
+    success: "Tudo certo!",
+    successMessage: "Informações atualizadas com sucesso!",
+    continue: "Continuar",
+    saveError: "Não foi possível salvar as alterações.",
+    tripNotFoundTitle: "Viagem não encontrada",
+    backToTrips: "Voltar para minhas viagens",
+    trips: "Viagens",
+    editTrip: "Editar viagem",
+    details: "Detalhes",
+    planned: "Planejada",
+    experience: "SUA EXPERIÊNCIA",
+    myTrip: "Minha viagem",
+    destinationNotInformed: "Destino não informado",
+    tripInfo: "Informações da viagem",
+    tripInfoSubtitle: "Os dados principais do seu destino",
+    tripName: "Nome da viagem",
+    tripNamePlaceholder: "Ex: Férias",
+    destination: "Destino",
+    destinationPlaceholder: "Ex: Rio de Janeiro",
+    transport: "Transporte",
+    transportPlaceholder: "Ex: Avião",
+    date: "Data",
+    tripDatePlaceholder: "Selecione a data da viagem",
+    name: "Nome",
+    notInformed: "Não informado",
+    accommodation: "Hospedagem",
+    accommodationSubtitle: "Onde você vai ficar",
+    hotelName: "Nome do hotel",
+    accommodationPlaceholder: "Nome da hospedagem",
+    address: "Endereço",
+    fullAddress: "Endereço completo",
+    accommodationDate: "Data da hospedagem",
+    accommodationDatePlaceholder: "Selecione check-in e check-out",
+    hotel: "Hotel",
+    period: "Período",
+    tours: "Passeios e experiências",
+    toursSubtitle: "Lugares que você deseja conhecer",
+    noTours: "Nenhum passeio cadastrado ainda.",
+    addTour: "Adicionar passeio",
+    budget: "Orçamento financeiro",
+    budgetSubtitle: "Controle seus gastos durante a viagem",
+    remainingBalance: "SALDO RESTANTE",
+    budgetUsed: "do orçamento utilizado",
+    totalBudget: "Orçamento total",
+    budgetPlaceholder: "Informe o orçamento",
+    quoteWarning:
+      "Cotação indisponível. Atualize as cotações no Perfil para editar valores nesta moeda.",
+    totalExpenses: "Total de gastos",
+    individualExpenses: "Gastos individuais",
+    noExpenses: "Nenhum gasto registrado.",
+    expenseName: "Nome do gasto",
+    amount: "Valor",
+    saveChanges: "Salvar alterações",
+    editInfo: "Editar informações",
+    cancelEditing: "Cancelar edição",
+    tripDateTitle: "Data da viagem",
+    selectCheckin: "Selecione o check-in",
+    selectCheckout: "Selecione o check-out",
+    chooseCheckin: "Escolha a data de entrada no hotel.",
+    chooseTripStart: "Escolha quando sua viagem começa.",
+    checkin: "Check-in",
+    notSelected: "Não selecionado",
+    cancel: "Cancelar",
+    nextCheckout: "Próximo: check-out",
+    finish: "Concluir",
+    tripUpdatedTitle: "Viagem atualizada!",
+    tripUpdatedMessage: (destination: string) =>
+      `As informações da sua viagem para ${destination} foram atualizadas.`,
+    accommodationUpdated: "Hospedagem atualizada!",
+    accommodationRemoved: "Hospedagem removida",
+    accommodationUpdatedMessage: (destination: string) =>
+      `As informações da hospedagem da viagem para ${destination} foram atualizadas.`,
+    accommodationRemovedMessage: (destination: string) =>
+      `A hospedagem da viagem para ${destination} foi removida.`,
+    toursUpdated: "Passeios atualizados!",
+    toursUpdatedMessage: (destination: string) =>
+      `A lista de passeios da viagem para ${destination} foi modificada.`,
+    budgetWarning: "Atenção ao orçamento!",
+    budgetWarningMessage: (percentage: string, destination: string) =>
+      `Você já utilizou ${percentage}% do orçamento da viagem para ${destination}.`,
+    budgetExceeded: "Orçamento ultrapassado!",
+    budgetExceededMessage: (destination: string, amount: string) =>
+      `Os gastos da viagem para ${destination} ultrapassaram o orçamento em ${amount}.`,
+    now: "Agora",
+    retry: "Tentar novamente",
+    backAccessibility: "Voltar para minhas viagens",
+    closeCalendarAccessibility: "Fechar calendário",
+    removeTourAccessibility: "Remover passeio",
+    addTourAccessibility: "Adicionar passeio",
+    removeExpenseAccessibility: "Remover gasto",
+    addExpenseAccessibility: "Adicionar gasto",
+  },
+  en: {
+    error: "Error",
+    loadError: "Unable to load trip details.",
+    invalidDate: "Invalid date",
+    checkoutBeforeCheckin: "Check-out cannot be earlier than check-in.",
+    attention: "Attention",
+    expenseValidation: "Enter an expense name and a valid amount.",
+    quoteUnavailable: "Exchange rate unavailable",
+    quoteExpenseError:
+      "Unable to retrieve the selected currency exchange rate. Update the rates in Profile and try again.",
+    fillTrip: "Enter the trip name, destination, transportation, and date.",
+    budgetQuoteError:
+      "Unable to convert the budget to reais. Update the rates in Profile and try again.",
+    budgetValidation: "Enter a valid budget.",
+    tripsNotFound: "Unable to find your trips.",
+    tripNotFound: "Unable to find this trip.",
+    success: "All done!",
+    successMessage: "Information updated successfully!",
+    continue: "Continue",
+    saveError: "Unable to save your changes.",
+    tripNotFoundTitle: "Trip not found",
+    backToTrips: "Back to my trips",
+    trips: "Trips",
+    editTrip: "Edit trip",
+    details: "Details",
+    planned: "Planned",
+    experience: "YOUR EXPERIENCE",
+    myTrip: "My trip",
+    destinationNotInformed: "Destination not provided",
+    tripInfo: "Trip information",
+    tripInfoSubtitle: "The main details of your destination",
+    tripName: "Trip name",
+    tripNamePlaceholder: "E.g. Vacation",
+    destination: "Destination",
+    destinationPlaceholder: "E.g. New York",
+    transport: "Transportation",
+    transportPlaceholder: "E.g. Airplane",
+    date: "Date",
+    tripDatePlaceholder: "Select your trip date",
+    name: "Name",
+    notInformed: "Not provided",
+    accommodation: "Accommodation",
+    accommodationSubtitle: "Where you will be staying",
+    hotelName: "Hotel name",
+    accommodationPlaceholder: "Accommodation name",
+    address: "Address",
+    fullAddress: "Full address",
+    accommodationDate: "Accommodation dates",
+    accommodationDatePlaceholder: "Select check-in and check-out",
+    hotel: "Hotel",
+    period: "Period",
+    tours: "Tours and experiences",
+    toursSubtitle: "Places you would like to visit",
+    noTours: "No tours added yet.",
+    addTour: "Add tour",
+    budget: "Travel budget",
+    budgetSubtitle: "Track your expenses during the trip",
+    remainingBalance: "REMAINING BALANCE",
+    budgetUsed: "of your budget used",
+    totalBudget: "Total budget",
+    budgetPlaceholder: "Enter your budget",
+    quoteWarning:
+      "Exchange rate unavailable. Update the rates in Profile to edit amounts in this currency.",
+    totalExpenses: "Total expenses",
+    individualExpenses: "Individual expenses",
+    noExpenses: "No expenses recorded.",
+    expenseName: "Expense name",
+    amount: "Amount",
+    saveChanges: "Save changes",
+    editInfo: "Edit information",
+    cancelEditing: "Cancel editing",
+    tripDateTitle: "Trip date",
+    selectCheckin: "Select check-in",
+    selectCheckout: "Select check-out",
+    chooseCheckin: "Choose your hotel check-in date.",
+    chooseTripStart: "Choose when your trip starts.",
+    checkin: "Check-in",
+    notSelected: "Not selected",
+    cancel: "Cancel",
+    nextCheckout: "Next: check-out",
+    finish: "Done",
+    tripUpdatedTitle: "Trip updated!",
+    tripUpdatedMessage: (destination: string) =>
+      `Your trip information for ${destination} has been updated.`,
+    accommodationUpdated: "Accommodation updated!",
+    accommodationRemoved: "Accommodation removed",
+    accommodationUpdatedMessage: (destination: string) =>
+      `The accommodation details for your trip to ${destination} have been updated.`,
+    accommodationRemovedMessage: (destination: string) =>
+      `The accommodation for your trip to ${destination} has been removed.`,
+    toursUpdated: "Tours updated!",
+    toursUpdatedMessage: (destination: string) =>
+      `The tour list for your trip to ${destination} has been modified.`,
+    budgetWarning: "Budget alert!",
+    budgetWarningMessage: (percentage: string, destination: string) =>
+      `You have used ${percentage}% of your budget for your trip to ${destination}.`,
+    budgetExceeded: "Budget exceeded!",
+    budgetExceededMessage: (destination: string, amount: string) =>
+      `Expenses for your trip to ${destination} have exceeded the budget by ${amount}.`,
+    now: "Now",
+    retry: "Try again",
+    backAccessibility: "Back to my trips",
+    closeCalendarAccessibility: "Close calendar",
+    removeTourAccessibility: "Remove tour",
+    addTourAccessibility: "Add tour",
+    removeExpenseAccessibility: "Remove expense",
+    addExpenseAccessibility: "Add expense",
+  },
+  es: {
+    error: "Error",
+    loadError: "No fue posible cargar los detalles del viaje.",
+    invalidDate: "Fecha no válida",
+    checkoutBeforeCheckin:
+      "La fecha de salida no puede ser anterior a la fecha de entrada.",
+    attention: "Atención",
+    expenseValidation: "Introduce el nombre y un importe válido para el gasto.",
+    quoteUnavailable: "Tipo de cambio no disponible",
+    quoteExpenseError:
+      "No fue posible obtener el tipo de cambio seleccionado. Actualiza las cotizaciones en Perfil e inténtalo de nuevo.",
+    fillTrip: "Completa el nombre, destino, transporte y fecha del viaje.",
+    budgetQuoteError:
+      "No fue posible convertir el presupuesto a reales. Actualiza las cotizaciones en Perfil e inténtalo de nuevo.",
+    budgetValidation: "Introduce un presupuesto válido.",
+    tripsNotFound: "No fue posible encontrar tus viajes.",
+    tripNotFound: "No fue posible encontrar este viaje.",
+    success: "¡Todo listo!",
+    successMessage: "¡Información actualizada correctamente!",
+    continue: "Continuar",
+    saveError: "No fue posible guardar los cambios.",
+    tripNotFoundTitle: "Viaje no encontrado",
+    backToTrips: "Volver a mis viajes",
+    trips: "Viajes",
+    editTrip: "Editar viaje",
+    details: "Detalles",
+    planned: "Planificado",
+    experience: "TU EXPERIENCIA",
+    myTrip: "Mi viaje",
+    destinationNotInformed: "Destino no indicado",
+    tripInfo: "Información del viaje",
+    tripInfoSubtitle: "Los datos principales de tu destino",
+    tripName: "Nombre del viaje",
+    tripNamePlaceholder: "Ej.: Vacaciones",
+    destination: "Destino",
+    destinationPlaceholder: "Ej.: Madrid",
+    transport: "Transporte",
+    transportPlaceholder: "Ej.: Avión",
+    date: "Fecha",
+    tripDatePlaceholder: "Selecciona la fecha del viaje",
+    name: "Nombre",
+    notInformed: "No indicado",
+    accommodation: "Alojamiento",
+    accommodationSubtitle: "Dónde te alojarás",
+    hotelName: "Nombre del hotel",
+    accommodationPlaceholder: "Nombre del alojamiento",
+    address: "Dirección",
+    fullAddress: "Dirección completa",
+    accommodationDate: "Fechas del alojamiento",
+    accommodationDatePlaceholder: "Selecciona entrada y salida",
+    hotel: "Hotel",
+    period: "Período",
+    tours: "Excursiones y experiencias",
+    toursSubtitle: "Lugares que deseas conocer",
+    noTours: "Todavía no hay excursiones registradas.",
+    addTour: "Añadir excursión",
+    budget: "Presupuesto del viaje",
+    budgetSubtitle: "Controla tus gastos durante el viaje",
+    remainingBalance: "SALDO RESTANTE",
+    budgetUsed: "del presupuesto utilizado",
+    totalBudget: "Presupuesto total",
+    budgetPlaceholder: "Introduce el presupuesto",
+    quoteWarning:
+      "Tipo de cambio no disponible. Actualiza las cotizaciones en Perfil para editar importes en esta moneda.",
+    totalExpenses: "Gastos totales",
+    individualExpenses: "Gastos individuales",
+    noExpenses: "No hay gastos registrados.",
+    expenseName: "Nombre del gasto",
+    amount: "Importe",
+    saveChanges: "Guardar cambios",
+    editInfo: "Editar información",
+    cancelEditing: "Cancelar edición",
+    tripDateTitle: "Fecha del viaje",
+    selectCheckin: "Selecciona la entrada",
+    selectCheckout: "Selecciona la salida",
+    chooseCheckin: "Elige la fecha de entrada al hotel.",
+    chooseTripStart: "Elige cuándo comienza tu viaje.",
+    checkin: "Entrada",
+    notSelected: "No seleccionado",
+    cancel: "Cancelar",
+    nextCheckout: "Siguiente: salida",
+    finish: "Finalizar",
+    tripUpdatedTitle: "¡Viaje actualizado!",
+    tripUpdatedMessage: (destination: string) =>
+      `La información de tu viaje a ${destination} ha sido actualizada.`,
+    accommodationUpdated: "¡Alojamiento actualizado!",
+    accommodationRemoved: "Alojamiento eliminado",
+    accommodationUpdatedMessage: (destination: string) =>
+      `La información del alojamiento de tu viaje a ${destination} ha sido actualizada.`,
+    accommodationRemovedMessage: (destination: string) =>
+      `El alojamiento de tu viaje a ${destination} ha sido eliminado.`,
+    toursUpdated: "¡Excursiones actualizadas!",
+    toursUpdatedMessage: (destination: string) =>
+      `La lista de excursiones del viaje a ${destination} ha sido modificada.`,
+    budgetWarning: "¡Atención al presupuesto!",
+    budgetWarningMessage: (percentage: string, destination: string) =>
+      `Ya has utilizado el ${percentage}% del presupuesto de tu viaje a ${destination}.`,
+    budgetExceeded: "¡Presupuesto excedido!",
+    budgetExceededMessage: (destination: string, amount: string) =>
+      `Los gastos de tu viaje a ${destination} han superado el presupuesto en ${amount}.`,
+    now: "Ahora",
+    retry: "Intentar de nuevo",
+    backAccessibility: "Volver a mis viajes",
+    closeCalendarAccessibility: "Cerrar calendario",
+    removeTourAccessibility: "Eliminar excursión",
+    addTourAccessibility: "Añadir excursión",
+    removeExpenseAccessibility: "Eliminar gasto",
+    addExpenseAccessibility: "Añadir gasto",
+  },
+} as const;
 
 type Gasto = {
   nome: string;
@@ -61,7 +392,6 @@ type NotificationItem = {
 };
 
 type DatePickerMode = "viagem" | "checkin" | "checkout" | null;
-
 type IconeTransporte = keyof typeof MaterialCommunityIcons.glyphMap;
 
 type SectionHeaderProps = {
@@ -85,43 +415,32 @@ const obterIconeTransporte = (transporte: string): IconeTransporte => {
     nomeNormalizado.includes("aviao") ||
     nomeNormalizado.includes("aereo") ||
     nomeNormalizado.includes("airplane")
-  ) {
+  )
     return "airplane";
-  }
-
   if (
     nomeNormalizado.includes("moto") ||
     nomeNormalizado.includes("motorcycle") ||
     nomeNormalizado.includes("motorbike")
-  ) {
+  )
     return "motorbike";
-  }
-
-  if (nomeNormalizado.includes("onibus") || nomeNormalizado.includes("bus")) {
+  if (nomeNormalizado.includes("onibus") || nomeNormalizado.includes("bus"))
     return "bus";
-  }
-
-  if (nomeNormalizado.includes("trem") || nomeNormalizado.includes("train")) {
+  if (nomeNormalizado.includes("trem") || nomeNormalizado.includes("train"))
     return "train";
-  }
-
   if (
     nomeNormalizado.includes("navio") ||
     nomeNormalizado.includes("barco") ||
     nomeNormalizado.includes("cruzeiro") ||
     nomeNormalizado.includes("ship") ||
     nomeNormalizado.includes("ferry")
-  ) {
+  )
     return "ferry";
-  }
-
   if (
     nomeNormalizado.includes("carro") ||
     nomeNormalizado.includes("automovel") ||
     nomeNormalizado.includes("car")
-  ) {
+  )
     return "car";
-  }
 
   return "car";
 };
@@ -145,7 +464,6 @@ function SectionHeader({
       >
         <Ionicons name={icon} size={21} color={accent} />
       </View>
-
       <View style={{ flex: 1 }}>
         <Text style={[styles.sectionTitle, { color: primaryText }]}>
           {title}
@@ -158,13 +476,54 @@ function SectionHeader({
   );
 }
 
-function lerLista<T>(valor?: string | T[]): T[] {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validarViagem(value: unknown): value is Viagem {
+  if (!isRecord(value)) return false;
+
+  return (
+    typeof value.id === "string" &&
+    value.id.trim().length > 0 &&
+    typeof value.nome === "string" &&
+    typeof value.destino === "string" &&
+    typeof value.transporte === "string" &&
+    typeof value.data === "string"
+  );
+}
+
+function lerPasseios(valor: unknown): string[] {
   if (!valor) return [];
-  if (Array.isArray(valor)) return valor;
 
   try {
-    const resultado = JSON.parse(valor);
-    return Array.isArray(resultado) ? resultado : [];
+    const resultado: unknown =
+      typeof valor === "string" ? JSON.parse(valor) : valor;
+    return Array.isArray(resultado)
+      ? resultado.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function validarGasto(value: unknown): value is Gasto {
+  return (
+    isRecord(value) &&
+    typeof value.nome === "string" &&
+    value.nome.trim().length > 0 &&
+    typeof value.valor === "number" &&
+    Number.isFinite(value.valor)
+  );
+}
+
+function lerGastos(valor: unknown): Gasto[] {
+  if (!valor) return [];
+
+  try {
+    const resultado: unknown =
+      typeof valor === "string" ? JSON.parse(valor) : valor;
+    return Array.isArray(resultado) ? resultado.filter(validarGasto) : [];
   } catch {
     return [];
   }
@@ -180,13 +539,11 @@ function formatarData(data: Date) {
   const dia = String(data.getDate()).padStart(2, "0");
   const mes = String(data.getMonth() + 1).padStart(2, "0");
   const ano = data.getFullYear();
-
   return `${dia}/${mes}/${ano}`;
 }
 
 function converterData(valor: string, anoReferencia?: number): Date | null {
   const correspondencia = valor.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
-
   if (!correspondencia) return null;
 
   const dia = Number(correspondencia[1]);
@@ -194,26 +551,64 @@ function converterData(valor: string, anoReferencia?: number): Date | null {
   const ano = Number(
     correspondencia[3] || anoReferencia || new Date().getFullYear(),
   );
-
   const resultado = new Date(ano, mes - 1, dia, 12, 0, 0);
 
   if (
     resultado.getDate() !== dia ||
     resultado.getMonth() !== mes - 1 ||
     resultado.getFullYear() !== ano
-  ) {
+  )
     return null;
-  }
 
   return resultado;
 }
 
+function formatarDataExibicao(valor: string, locale: string) {
+  if (!valor.trim()) return valor;
+  const dataConvertida = converterData(valor);
+  if (!dataConvertida) return valor;
+
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(dataConvertida);
+}
+
+function formatarPeriodoExibicao(
+  valor: string,
+  locale: string,
+  language: "pt-BR" | "en" | "es",
+  anoReferencia?: number,
+) {
+  if (!valor.trim()) return valor;
+
+  const partes = valor.split(/\s+a\s+/i);
+  if (partes.length !== 2) return formatarDataExibicao(valor, locale);
+
+  const dataInicial = converterData(partes[0], anoReferencia);
+  const dataFinal = converterData(partes[1], anoReferencia);
+  if (!dataInicial || !dataFinal) return valor;
+
+  const formatador = new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const separador =
+    language === "en" ? " to " : language === "es" ? " al " : " a ";
+  return `${formatador.format(dataInicial)}${separador}${formatador.format(dataFinal)}`;
+}
+
 export default function Detalhes() {
   const params = useLocalSearchParams<{ id: string }>();
+  const viagemId = typeof params.id === "string" ? params.id : "";
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-
+  const { language, locale } = useLanguage();
+  const copy = DETAIL_TRANSLATIONS[language];
   const { currency, rates, convertFromBRL, formatAmount } = useCurrency();
 
   const background = isDark ? "#121212" : "#F4F6FA";
@@ -225,6 +620,7 @@ export default function Detalhes() {
   const accent = "#8FA255";
 
   const [loading, setLoading] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState(false);
   const [editando, setEditando] = useState(false);
 
   const [nome, setNome] = useState("");
@@ -239,10 +635,7 @@ export default function Detalhes() {
   const [passeios, setPasseios] = useState<string[]>([]);
   const [novoPasseio, setNovoPasseio] = useState("");
 
-  // Valor financeiro armazenado internamente em BRL.
   const [orcamentoTotal, setOrcamentoTotal] = useState("0");
-
-  // Valor temporário exibido no campo de edição, na moeda selecionada.
   const [orcamentoEntrada, setOrcamentoEntrada] = useState("0");
 
   const [gastos, setGastos] = useState<Gasto[]>([]);
@@ -258,56 +651,73 @@ export default function Detalhes() {
   const [hotelCheckout, setHotelCheckout] = useState<Date | null>(null);
 
   const avancandoParaCheckout = useRef(false);
-
   const iconeTransporte = obterIconeTransporte(transporte);
 
-  // Converte um valor informado na moeda selecionada para BRL.
+  const dataViagemExibicao = formatarDataExibicao(data, locale);
+  const periodoHospedagemExibicao = formatarPeriodoExibicao(
+    hotelData,
+    locale,
+    language,
+    converterData(data)?.getFullYear(),
+  );
+
   const converterParaBRL = (valor: number) => {
     const taxa = rates[currency];
-
-    if (currency === "BRL") {
-      return valor;
-    }
-
-    if (!taxa || taxa <= 0) {
-      return null;
-    }
-
+    if (currency === "BRL") return valor;
+    if (!taxa || taxa <= 0) return null;
     return valor / taxa;
   };
 
-  // Prepara o valor inicial do campo de edição na moeda selecionada.
-  const formatarValorEntrada = (valorBRL: number) => {
-    return convertFromBRL(valorBRL).toFixed(2);
-  };
+  const formatarValorEntrada = (valorBRL: number) =>
+    convertFromBRL(valorBRL).toFixed(2);
 
   const preencherDetalhes = useCallback((viagemAtual: Viagem) => {
     setViagemNaoEncontrada(false);
-    setNome(viagemAtual.nome || "");
-    setDestino(viagemAtual.destino || "");
-    setTransporte(viagemAtual.transporte || "");
-    setData(viagemAtual.data || "");
-
-    setHotelNome(viagemAtual.hotelNome || "");
-    setHotelEndereco(viagemAtual.hotelEndereco || "");
-    setHotelData(viagemAtual.hotelData || "");
-
-    setPasseios(lerLista<string>(viagemAtual.passeios));
-    setGastos(lerLista<Gasto>(viagemAtual.gastos));
-    setOrcamentoTotal(viagemAtual.orcamentoTotal || "0");
+    setErroCarregamento(false);
+    setNome(viagemAtual.nome);
+    setDestino(viagemAtual.destino);
+    setTransporte(viagemAtual.transporte);
+    setData(viagemAtual.data);
+    setHotelNome(
+      typeof viagemAtual.hotelNome === "string" ? viagemAtual.hotelNome : "",
+    );
+    setHotelEndereco(
+      typeof viagemAtual.hotelEndereco === "string"
+        ? viagemAtual.hotelEndereco
+        : "",
+    );
+    setHotelData(
+      typeof viagemAtual.hotelData === "string" ? viagemAtual.hotelData : "",
+    );
+    setPasseios(lerPasseios(viagemAtual.passeios));
+    setGastos(lerGastos(viagemAtual.gastos));
+    setOrcamentoTotal(
+      typeof viagemAtual.orcamentoTotal === "string"
+        ? viagemAtual.orcamentoTotal
+        : "0",
+    );
   }, []);
 
+  const buscarViagem = useCallback(async (): Promise<Viagem | null> => {
+    const dados = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
+    if (!dados) return null;
+
+    const resultado: unknown = JSON.parse(dados);
+    if (!Array.isArray(resultado)) {
+      throw new Error("O conteúdo salvo de viagens não é uma lista válida.");
+    }
+
+    const viagens = resultado.filter(validarViagem);
+    return viagens.find((viagem) => viagem.id === viagemId) || null;
+  }, [viagemId]);
+
   const carregarDetalhesViagem = useCallback(async () => {
+    setLoading(true);
+    setErroCarregamento(false);
+    setViagemNaoEncontrada(false);
+
     try {
-      const dados = await AsyncStorage.getItem("@viagens");
-
-      if (!dados) {
-        setViagemNaoEncontrada(true);
-        return;
-      }
-
-      const viagens: Viagem[] = JSON.parse(dados);
-      const viagemAtual = viagens.find((v) => v.id === params.id);
+      const viagemAtual = await buscarViagem();
 
       if (!viagemAtual) {
         setViagemNaoEncontrada(true);
@@ -317,26 +727,18 @@ export default function Detalhes() {
       preencherDetalhes(viagemAtual);
     } catch (error) {
       console.error("Erro ao carregar viagem:", error);
-      Alert.alert("Erro", "Não foi possível carregar os detalhes da viagem.");
+      setErroCarregamento(true);
     } finally {
       setLoading(false);
     }
-  }, [params.id, preencherDetalhes]);
+  }, [buscarViagem, preencherDetalhes]);
 
   useEffect(() => {
     let ativo = true;
 
-    AsyncStorage.getItem("@viagens")
-      .then((dados) => {
+    buscarViagem()
+      .then((viagemAtual) => {
         if (!ativo) return;
-
-        if (!dados) {
-          setViagemNaoEncontrada(true);
-          return;
-        }
-
-        const viagens: Viagem[] = JSON.parse(dados);
-        const viagemAtual = viagens.find((v) => v.id === params.id);
 
         if (!viagemAtual) {
           setViagemNaoEncontrada(true);
@@ -347,35 +749,24 @@ export default function Detalhes() {
       })
       .catch((error) => {
         console.error("Erro ao carregar viagem:", error);
-
-        if (ativo) {
-          Alert.alert(
-            "Erro",
-            "Não foi possível carregar os detalhes da viagem.",
-          );
-        }
+        if (ativo) setErroCarregamento(true);
       })
       .finally(() => {
-        if (ativo) {
-          setLoading(false);
-        }
+        if (ativo) setLoading(false);
       });
 
     return () => {
       ativo = false;
     };
-  }, [params.id, preencherDetalhes]);
+  }, [buscarViagem, preencherDetalhes]);
 
-  // Abre a edição e prepara o orçamento uma única vez.
   const iniciarEdicao = () => {
     setOrcamentoEntrada(formatarValorEntrada(converterValor(orcamentoTotal)));
     setEditando(true);
   };
 
   const abrirCalendarioViagem = () => {
-    const dataAtual = converterData(data) || new Date();
-
-    setSelectedDate(dataAtual);
+    setSelectedDate(converterData(data) || new Date());
     setDatePickerMode("viagem");
     setShowDatePicker(true);
   };
@@ -383,12 +774,9 @@ export default function Detalhes() {
   const abrirCalendarioHospedagem = () => {
     const anoViagem =
       converterData(data)?.getFullYear() || new Date().getFullYear();
-
     const periodo = hotelData.split(/\s+a\s+/i);
-
     const checkinAtual =
       converterData(periodo[0] || "", anoViagem) || new Date();
-
     const checkoutAtual =
       converterData(periodo[1] || "", anoViagem) || checkinAtual;
 
@@ -414,7 +802,6 @@ export default function Detalhes() {
         setData(formatarData(novaData));
         fecharCalendario();
       }
-
       return;
     }
 
@@ -435,16 +822,12 @@ export default function Detalhes() {
           avancandoParaCheckout.current = false;
         }, 800);
       }
-
       return;
     }
 
     if (datePickerMode === "checkout") {
       if (hotelCheckin && novaData < hotelCheckin) {
-        Alert.alert(
-          "Data inválida",
-          "O check-out não pode ser anterior à data de check-in.",
-        );
+        Alert.alert(copy.invalidDate, copy.checkoutBeforeCheckin);
         return;
       }
 
@@ -475,10 +858,7 @@ export default function Detalhes() {
 
     if (datePickerMode === "checkout") {
       if (hotelCheckin && selectedDate < hotelCheckin) {
-        Alert.alert(
-          "Data inválida",
-          "O check-out não pode ser anterior à data de check-in.",
-        );
+        Alert.alert(copy.invalidDate, copy.checkoutBeforeCheckin);
         return;
       }
 
@@ -490,17 +870,13 @@ export default function Detalhes() {
     }
   };
 
-  const formatarMoeda = (valor: number) => {
-    return formatAmount(valor);
-  };
+  const formatarMoeda = (valor: number) => formatAmount(valor);
 
   const totalGastos = gastos.reduce(
     (acc, curr) => acc + (Number(curr.valor) || 0),
     0,
   );
-
   const saldoRestante = converterValor(orcamentoTotal) - totalGastos;
-
   const percentualGasto =
     converterValor(orcamentoTotal) > 0
       ? Math.min((totalGastos / converterValor(orcamentoTotal)) * 100, 100)
@@ -508,7 +884,6 @@ export default function Detalhes() {
 
   const adicionarPasseio = () => {
     if (!novoPasseio.trim()) return;
-
     setPasseios((atual) => [...atual, novoPasseio.trim()]);
     setNovoPasseio("");
   };
@@ -525,26 +900,20 @@ export default function Detalhes() {
       !novoGastoValor.trim() ||
       valorInformado <= 0
     ) {
-      Alert.alert("Atenção", "Informe o nome e um valor válido para o gasto.");
+      Alert.alert(copy.attention, copy.expenseValidation);
       return;
     }
 
     const valorEmBRL = converterParaBRL(valorInformado);
 
     if (valorEmBRL === null) {
-      Alert.alert(
-        "Cotação indisponível",
-        "Não foi possível obter a cotação da moeda selecionada. Atualize as cotações no Perfil e tente novamente.",
-      );
+      Alert.alert(copy.quoteUnavailable, copy.quoteExpenseError);
       return;
     }
 
     setGastos((atual) => [
       ...atual,
-      {
-        nome: novoGastoNome.trim(),
-        valor: valorEmBRL,
-      },
+      { nome: novoGastoNome.trim(), valor: valorEmBRL },
     ]);
 
     setNovoGastoNome("");
@@ -573,25 +942,21 @@ export default function Detalhes() {
   ) => {
     try {
       const preferencias = await getNotificationPreferences();
-
       const notificacoesPermitidas = notificacoes.filter(
         (item) => preferencias[item.preferencia],
       );
-
       if (notificacoesPermitidas.length === 0) return;
 
       const dadosExistentes = await AsyncStorage.getItem(
         NOTIFICATIONS_STORAGE_KEY,
       );
-
       let notificacoesSalvas: NotificationItem[] = [];
 
       if (dadosExistentes) {
         try {
-          const parsed = JSON.parse(dadosExistentes);
-          if (Array.isArray(parsed)) {
-            notificacoesSalvas = parsed;
-          }
+          const parsed: unknown = JSON.parse(dadosExistentes);
+          if (Array.isArray(parsed))
+            notificacoesSalvas = parsed as NotificationItem[];
         } catch {
           notificacoesSalvas = [];
         }
@@ -602,14 +967,14 @@ export default function Detalhes() {
           id: `${Date.now()}-${index}`,
           title: item.titulo,
           message: item.mensagem,
-          time: "Agora",
+          time: copy.now,
           category: item.categoria,
           icon: item.icone,
           color: item.cor,
           background: item.fundo,
           read: false,
           section: "Hoje",
-          viagemId: params.id,
+          viagemId,
         }),
       );
 
@@ -626,43 +991,44 @@ export default function Detalhes() {
 
   const salvarEdicao = async () => {
     if (!nome.trim() || !destino.trim() || !transporte.trim() || !data.trim()) {
-      Alert.alert(
-        "Atenção",
-        "Preencha nome, destino, transporte e data da viagem.",
-      );
+      Alert.alert(copy.attention, copy.fillTrip);
       return;
     }
 
-    // Converte o orçamento digitado para BRL somente ao salvar.
     const valorOrcamentoInformado = converterValor(orcamentoEntrada);
     const orcamentoEmBRL = converterParaBRL(valorOrcamentoInformado);
 
     if (orcamentoEmBRL === null) {
-      Alert.alert(
-        "Cotação indisponível",
-        "Não foi possível converter o orçamento para reais. Atualize as cotações no Perfil e tente novamente.",
-      );
+      Alert.alert(copy.quoteUnavailable, copy.budgetQuoteError);
       return;
     }
 
     if (valorOrcamentoInformado < 0) {
-      Alert.alert("Atenção", "Informe um orçamento válido.");
+      Alert.alert(copy.attention, copy.budgetValidation);
       return;
     }
 
     try {
-      const dados = await AsyncStorage.getItem("@viagens");
+      const dados = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
 
       if (!dados) {
-        Alert.alert("Erro", "Não foi possível encontrar suas viagens.");
+        Alert.alert(copy.error, copy.tripsNotFound);
         return;
       }
 
-      const viagens: Viagem[] = JSON.parse(dados);
-      const viagemAnterior = viagens.find((v) => v.id === params.id);
+      const resultado: unknown = JSON.parse(dados);
+
+      if (!Array.isArray(resultado)) {
+        Alert.alert(copy.error, copy.tripsNotFound);
+        return;
+      }
+
+      const viagemAnterior = resultado.find(
+        (item): item is Viagem => validarViagem(item) && item.id === viagemId,
+      );
 
       if (!viagemAnterior) {
-        Alert.alert("Erro", "Não foi possível encontrar essa viagem.");
+        Alert.alert(copy.error, copy.tripNotFound);
         return;
       }
 
@@ -680,12 +1046,15 @@ export default function Detalhes() {
         gastos: JSON.stringify(gastos),
       };
 
-      const listaAtualizada = viagens.map((v) =>
-        v.id === params.id ? novaViagem : v,
+      // Preserva registros que não correspondem a esta viagem.
+      const listaAtualizada = resultado.map((item) =>
+        validarViagem(item) && item.id === viagemId ? novaViagem : item,
       );
 
-      await AsyncStorage.setItem("@viagens", JSON.stringify(listaAtualizada));
-
+      await AsyncStorage.setItem(
+        TRIPS_STORAGE_KEY,
+        JSON.stringify(listaAtualizada),
+      );
       setOrcamentoTotal(String(orcamentoEmBRL));
 
       try {
@@ -695,10 +1064,10 @@ export default function Detalhes() {
       }
 
       const mudouInformacaoPrincipal =
-        (viagemAnterior.nome || "") !== novaViagem.nome ||
-        (viagemAnterior.destino || "") !== novaViagem.destino ||
-        (viagemAnterior.transporte || "") !== novaViagem.transporte ||
-        (viagemAnterior.data || "") !== novaViagem.data;
+        viagemAnterior.nome !== novaViagem.nome ||
+        viagemAnterior.destino !== novaViagem.destino ||
+        viagemAnterior.transporte !== novaViagem.transporte ||
+        viagemAnterior.data !== novaViagem.data;
 
       const mudouHospedagem =
         (viagemAnterior.hotelNome || "") !== (novaViagem.hotelNome || "") ||
@@ -706,19 +1075,15 @@ export default function Detalhes() {
           (novaViagem.hotelEndereco || "") ||
         (viagemAnterior.hotelData || "") !== (novaViagem.hotelData || "");
 
-      const passeiosAnteriores = lerLista<string>(viagemAnterior.passeios);
-      const passeiosNovos = passeios;
-
+      const passeiosAnteriores = lerPasseios(viagemAnterior.passeios);
       const mudouPasseios =
-        JSON.stringify(passeiosAnteriores) !== JSON.stringify(passeiosNovos);
+        JSON.stringify(passeiosAnteriores) !== JSON.stringify(passeios);
 
       const orcamentoAnterior = converterValor(
         viagemAnterior.orcamentoTotal || "0",
       );
-
       const orcamentoNovo = converterValor(novaViagem.orcamentoTotal || "0");
-
-      const gastosAnteriores = lerLista<Gasto>(viagemAnterior.gastos);
+      const gastosAnteriores = lerGastos(viagemAnterior.gastos);
 
       const totalGastosAnterior = gastosAnteriores.reduce(
         (total, gasto) => total + (Number(gasto.valor) || 0),
@@ -755,8 +1120,8 @@ export default function Detalhes() {
       if (mudouAlgumaInformacao) {
         notificacoesParaRegistrar.push({
           preferencia: "viagemAtualizada",
-          titulo: "Viagem atualizada!",
-          mensagem: `As informações da sua viagem para ${novaViagem.destino} foram atualizadas.`,
+          titulo: copy.tripUpdatedTitle,
+          mensagem: copy.tripUpdatedMessage(novaViagem.destino),
           categoria: "viagem",
           icone: "create-outline",
           cor: "#8FA255",
@@ -773,11 +1138,11 @@ export default function Detalhes() {
         notificacoesParaRegistrar.push({
           preferencia: "hospedagem",
           titulo: hospedagemCadastrada
-            ? "Hospedagem atualizada!"
-            : "Hospedagem removida",
+            ? copy.accommodationUpdated
+            : copy.accommodationRemoved,
           mensagem: hospedagemCadastrada
-            ? `As informações da hospedagem da viagem para ${novaViagem.destino} foram atualizadas.`
-            : `A hospedagem da viagem para ${novaViagem.destino} foi removida.`,
+            ? copy.accommodationUpdatedMessage(novaViagem.destino)
+            : copy.accommodationRemovedMessage(novaViagem.destino),
           categoria: "hospedagem",
           icone: "bed-outline",
           cor: "#6D91C7",
@@ -788,8 +1153,8 @@ export default function Detalhes() {
       if (mudouPasseios) {
         notificacoesParaRegistrar.push({
           preferencia: "passeios",
-          titulo: "Passeios atualizados!",
-          mensagem: `A lista de passeios da viagem para ${novaViagem.destino} foi modificada.`,
+          titulo: copy.toursUpdated,
+          mensagem: copy.toursUpdatedMessage(novaViagem.destino),
           categoria: "passeios",
           icone: "ticket-outline",
           cor: "#A17BC2",
@@ -804,8 +1169,11 @@ export default function Detalhes() {
       ) {
         notificacoesParaRegistrar.push({
           preferencia: "orcamento80",
-          titulo: "Atenção ao orçamento!",
-          mensagem: `Você já utilizou ${percentualNovo.toFixed(0)}% do orçamento da viagem para ${novaViagem.destino}.`,
+          titulo: copy.budgetWarning,
+          mensagem: copy.budgetWarningMessage(
+            percentualNovo.toFixed(0),
+            novaViagem.destino,
+          ),
           categoria: "orcamento",
           icone: "alert-circle-outline",
           cor: "#D99A42",
@@ -820,8 +1188,11 @@ export default function Detalhes() {
       ) {
         notificacoesParaRegistrar.push({
           preferencia: "orcamentoExcedido",
-          titulo: "Orçamento ultrapassado!",
-          mensagem: `Os gastos da viagem para ${novaViagem.destino} ultrapassaram o orçamento em ${formatarMoeda(totalGastosNovo - orcamentoNovo)}.`,
+          titulo: copy.budgetExceeded,
+          mensagem: copy.budgetExceededMessage(
+            novaViagem.destino,
+            formatarMoeda(totalGastosNovo - orcamentoNovo),
+          ),
           categoria: "orcamento",
           icone: "warning-outline",
           cor: "#D96B6B",
@@ -835,15 +1206,12 @@ export default function Detalhes() {
 
       setEditando(false);
 
-      Alert.alert("Tudo certo!", "Informações atualizadas com sucesso!", [
-        {
-          text: "Continuar",
-          onPress: () => router.back(),
-        },
+      Alert.alert(copy.success, copy.successMessage, [
+        { text: copy.continue, onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error("Erro ao salvar:", error);
-      Alert.alert("Erro", "Não foi possível salvar as alterações.");
+      Alert.alert(copy.error, copy.saveError);
     }
   };
 
@@ -857,18 +1225,13 @@ export default function Detalhes() {
   ) => (
     <View style={styles.field}>
       <Text style={[styles.label, { color: secondaryText }]}>{label}</Text>
-
       <View
         style={[
           styles.inputContainer,
-          {
-            backgroundColor: inputBackground,
-            borderColor,
-          },
+          { backgroundColor: inputBackground, borderColor },
         ]}
       >
         <Ionicons name={icon} size={18} color={accent} />
-
         <TextInput
           style={[styles.input, { color: primaryText }]}
           value={value}
@@ -876,6 +1239,7 @@ export default function Detalhes() {
           placeholder={placeholder}
           placeholderTextColor={secondaryText}
           keyboardType={keyboardType}
+          accessibilityLabel={label}
         />
       </View>
     </View>
@@ -884,38 +1248,33 @@ export default function Detalhes() {
   const renderDateInput = (
     label: string,
     value: string,
+    displayValue: string,
     onPress: () => void,
     placeholder: string,
   ) => (
     <View style={styles.field}>
       <Text style={[styles.label, { color: secondaryText }]}>{label}</Text>
-
       <Pressable
         style={[
           styles.inputContainer,
-          {
-            backgroundColor: inputBackground,
-            borderColor,
-          },
+          { backgroundColor: inputBackground, borderColor },
         ]}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value ? displayValue : placeholder}`}
       >
         <Ionicons name="calendar-outline" size={18} color={accent} />
-
         <View style={styles.dateInputTextContainer}>
           <Text
             style={[
               styles.dateInputText,
-              {
-                color: value ? primaryText : secondaryText,
-              },
+              { color: value ? primaryText : secondaryText },
             ]}
             numberOfLines={1}
           >
-            {value || placeholder}
+            {value ? displayValue : placeholder}
           </Text>
         </View>
-
         <Ionicons name="chevron-down" size={17} color={secondaryText} />
       </Pressable>
     </View>
@@ -935,11 +1294,10 @@ export default function Detalhes() {
       >
         <Ionicons name={icon} size={19} color={accent} />
       </View>
-
       <View style={{ flex: 1 }}>
         <Text style={[styles.label, { color: secondaryText }]}>{label}</Text>
         <Text style={[styles.infoValue, { color: primaryText }]}>
-          {value || "Não informado"}
+          {value || copy.notInformed}
         </Text>
       </View>
     </View>
@@ -959,29 +1317,25 @@ export default function Detalhes() {
           color={accent}
         />
       </View>
-
       <View style={{ flex: 1 }}>
-        <Text style={[styles.label, { color: secondaryText }]}>Transporte</Text>
+        <Text style={[styles.label, { color: secondaryText }]}>
+          {copy.transport}
+        </Text>
         <Text style={[styles.infoValue, { color: primaryText }]}>
-          {transporte || "Não informado"}
+          {transporte || copy.notInformed}
         </Text>
       </View>
     </View>
   );
 
-  const sectionHeaderProps = {
-    isDark,
-    primaryText,
-    secondaryText,
-    accent,
-  };
+  const sectionHeaderProps = { isDark, primaryText, secondaryText, accent };
 
   const tituloCalendario =
     datePickerMode === "viagem"
-      ? "Data da viagem"
+      ? copy.tripDateTitle
       : datePickerMode === "checkin"
-        ? "Selecione o check-in"
-        : "Selecione o check-out";
+        ? copy.selectCheckin
+        : copy.selectCheckout;
 
   const renderCalendarioIOS = () => {
     if (!showDatePicker || Platform.OS !== "ios") return null;
@@ -999,17 +1353,20 @@ export default function Detalhes() {
             <Text style={[styles.datePickerTitle, { color: primaryText }]}>
               {tituloCalendario}
             </Text>
-
             <Text style={[styles.datePickerSubtitle, { color: secondaryText }]}>
               {datePickerMode === "checkin"
-                ? "Escolha a data de entrada no hotel."
+                ? copy.chooseCheckin
                 : datePickerMode === "checkout"
-                  ? `Check-in: ${hotelCheckin ? formatarData(hotelCheckin) : "Não selecionado"}`
-                  : "Escolha quando sua viagem começa."}
+                  ? `${copy.checkin}: ${hotelCheckin ? new Intl.DateTimeFormat(locale).format(hotelCheckin) : copy.notSelected}`
+                  : copy.chooseTripStart}
             </Text>
           </View>
-
-          <Pressable onPress={fecharCalendario} hitSlop={10}>
+          <Pressable
+            onPress={fecharCalendario}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={copy.closeCalendarAccessibility}
+          >
             <Ionicons
               name="close-circle-outline"
               size={25}
@@ -1023,11 +1380,8 @@ export default function Detalhes() {
           mode="date"
           display="spinner"
           onValueChange={(_event, novaData) => {
-            if (novaData) {
-              setSelectedDate(novaData);
-            }
+            if (novaData) setSelectedDate(novaData);
           }}
-          locale="pt-BR"
           textColor={primaryText}
           style={styles.iosDatePicker}
           minimumDate={
@@ -1039,22 +1393,23 @@ export default function Detalhes() {
 
         <View style={styles.datePickerButtons}>
           <Pressable
-            style={[styles.datePickerCancel, { borderColor: borderColor }]}
+            style={[styles.datePickerCancel, { borderColor }]}
             onPress={fecharCalendario}
+            accessibilityRole="button"
           >
             <Text
               style={[styles.datePickerCancelText, { color: secondaryText }]}
             >
-              Cancelar
+              {copy.cancel}
             </Text>
           </Pressable>
-
           <Pressable
             style={[styles.datePickerConfirm, { backgroundColor: accent }]}
             onPress={confirmarDataIOS}
+            accessibilityRole="button"
           >
             <Text style={styles.datePickerConfirmText}>
-              {datePickerMode === "checkin" ? "Próximo: check-out" : "Concluir"}
+              {datePickerMode === "checkin" ? copy.nextCheckout : copy.finish}
             </Text>
           </Pressable>
         </View>
@@ -1070,6 +1425,40 @@ export default function Detalhes() {
     );
   }
 
+  if (erroCarregamento) {
+    return (
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: background }]}
+        edges={["top", "bottom"]}
+      >
+        <Ionicons name="alert-circle-outline" size={48} color="#D96B6B" />
+        <Text style={[styles.emptyTitle, { color: primaryText }]}>
+          {copy.error}
+        </Text>
+        <Text style={[styles.errorMessage, { color: secondaryText }]}>
+          {copy.loadError}
+        </Text>
+        <Pressable
+          onPress={() => void carregarDetalhesViagem()}
+          accessibilityRole="button"
+          accessibilityLabel={copy.retry}
+          style={[styles.retryButton, { backgroundColor: accent }]}
+        >
+          <Text style={styles.retryButtonText}>{copy.retry}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel={copy.backAccessibility}
+        >
+          <Text style={{ color: accent, fontWeight: "700", marginTop: 16 }}>
+            {copy.backToTrips}
+          </Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   if (viagemNaoEncontrada) {
     return (
       <SafeAreaView
@@ -1077,14 +1466,16 @@ export default function Detalhes() {
         edges={["top", "bottom"]}
       >
         <Ionicons name="alert-circle-outline" size={48} color={accent} />
-
         <Text style={[styles.emptyTitle, { color: primaryText }]}>
-          Viagem não encontrada
+          {copy.tripNotFoundTitle}
         </Text>
-
-        <Pressable onPress={() => router.back()}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel={copy.backAccessibility}
+        >
           <Text style={{ color: accent, fontWeight: "700", marginTop: 12 }}>
-            Voltar para minhas viagens
+            {copy.backToTrips}
           </Text>
         </Pressable>
       </SafeAreaView>
@@ -1107,17 +1498,18 @@ export default function Detalhes() {
             style={styles.backButton}
             onPress={() => router.back()}
             hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={copy.backAccessibility}
           >
             <Ionicons name="arrow-back" size={22} color={primaryText} />
             <Text style={[styles.backButtonText, { color: primaryText }]}>
-              Viagens
+              {copy.trips}
             </Text>
           </Pressable>
 
           <Text style={[styles.topBarTitle, { color: primaryText }]}>
-            {editando ? "Editar viagem" : "Detalhes"}
+            {editando ? copy.editTrip : copy.details}
           </Text>
-
           <View style={{ width: 80 }} />
         </View>
 
@@ -1153,27 +1545,24 @@ export default function Detalhes() {
                   color="#FFFFFF"
                 />
               </View>
-
               <View style={styles.statusTag}>
                 <View style={styles.statusDot} />
-                <Text style={styles.statusText}>Planejada</Text>
+                <Text style={styles.statusText}>{copy.planned}</Text>
               </View>
             </View>
 
             <Text style={[styles.heroLabel, { color: secondaryText }]}>
-              SUA EXPERIÊNCIA
+              {copy.experience}
             </Text>
-
             <Text style={[styles.heroTitle, { color: primaryText }]}>
-              {nome || "Minha viagem"}
+              {nome || copy.myTrip}
             </Text>
-
             <View style={styles.heroDestination}>
               <Ionicons name="location" size={17} color={accent} />
               <Text
                 style={[styles.heroDestinationText, { color: secondaryText }]}
               >
-                {destino || "Destino não informado"}
+                {destino || copy.destinationNotInformed}
               </Text>
             </View>
           </View>
@@ -1181,49 +1570,48 @@ export default function Detalhes() {
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
-              title="Informações da viagem"
-              subtitle="Os dados principais do seu destino"
+              title={copy.tripInfo}
+              subtitle={copy.tripInfoSubtitle}
               icon="map-outline"
             />
-
             {editando ? (
               <>
                 {renderInput(
-                  "Nome da viagem",
+                  copy.tripName,
                   nome,
                   setNome,
-                  "Ex: Férias",
+                  copy.tripNamePlaceholder,
                   "bookmark-outline",
                 )}
                 {renderInput(
-                  "Destino",
+                  copy.destination,
                   destino,
                   setDestino,
-                  "Ex: Rio de Janeiro",
+                  copy.destinationPlaceholder,
                   "location-outline",
                 )}
                 {renderInput(
-                  "Transporte",
+                  copy.transport,
                   transporte,
                   setTransporte,
-                  "Ex: Avião",
+                  copy.transportPlaceholder,
                   "car-outline",
                 )}
                 {renderDateInput(
-                  "Data",
+                  copy.date,
                   data,
+                  dataViagemExibicao,
                   abrirCalendarioViagem,
-                  "Selecione a data da viagem",
+                  copy.tripDatePlaceholder,
                 )}
-
                 {datePickerMode === "viagem" && renderCalendarioIOS()}
               </>
             ) : (
               <View style={styles.infoGrid}>
-                {renderInfo("Nome", nome, "bookmark-outline")}
-                {renderInfo("Destino", destino, "location-outline")}
+                {renderInfo(copy.name, nome, "bookmark-outline")}
+                {renderInfo(copy.destination, destino, "location-outline")}
                 {renderInfoTransporte()}
-                {renderInfo("Data", data, "calendar-outline")}
+                {renderInfo(copy.date, dataViagemExibicao, "calendar-outline")}
               </View>
             )}
           </View>
@@ -1231,43 +1619,46 @@ export default function Detalhes() {
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
-              title="Hospedagem"
-              subtitle="Onde você vai ficar"
+              title={copy.accommodation}
+              subtitle={copy.accommodationSubtitle}
               icon="bed-outline"
             />
-
             {editando ? (
               <>
                 {renderInput(
-                  "Nome do hotel",
+                  copy.hotelName,
                   hotelNome,
                   setHotelNome,
-                  "Nome da hospedagem",
+                  copy.accommodationPlaceholder,
                   "business-outline",
                 )}
                 {renderInput(
-                  "Endereço",
+                  copy.address,
                   hotelEndereco,
                   setHotelEndereco,
-                  "Endereço completo",
+                  copy.fullAddress,
                   "location-outline",
                 )}
                 {renderDateInput(
-                  "Data da hospedagem",
+                  copy.accommodationDate,
                   hotelData,
+                  periodoHospedagemExibicao,
                   abrirCalendarioHospedagem,
-                  "Selecione check-in e check-out",
+                  copy.accommodationDatePlaceholder,
                 )}
-
                 {(datePickerMode === "checkin" ||
                   datePickerMode === "checkout") &&
                   renderCalendarioIOS()}
               </>
             ) : (
               <View style={styles.infoGrid}>
-                {renderInfo("Hotel", hotelNome, "business-outline")}
-                {renderInfo("Endereço", hotelEndereco, "location-outline")}
-                {renderInfo("Período", hotelData, "calendar-outline")}
+                {renderInfo(copy.hotel, hotelNome, "business-outline")}
+                {renderInfo(copy.address, hotelEndereco, "location-outline")}
+                {renderInfo(
+                  copy.period,
+                  periodoHospedagemExibicao,
+                  "calendar-outline",
+                )}
               </View>
             )}
           </View>
@@ -1275,14 +1666,14 @@ export default function Detalhes() {
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
-              title="Passeios e experiências"
-              subtitle="Lugares que você deseja conhecer"
+              title={copy.tours}
+              subtitle={copy.toursSubtitle}
               icon="ticket-outline"
             />
 
             {passeios.length === 0 && !editando ? (
               <Text style={[styles.emptyMessage, { color: secondaryText }]}>
-                Nenhum passeio cadastrado ainda.
+                {copy.noTours}
               </Text>
             ) : (
               passeios.map((item, index) => (
@@ -1300,11 +1691,12 @@ export default function Detalhes() {
                       {item}
                     </Text>
                   </View>
-
                   {editando && (
                     <Pressable
                       onPress={() => removerPasseio(index)}
                       hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${copy.removeTourAccessibility}: ${item}`}
                     >
                       <Ionicons
                         name="trash-outline"
@@ -1333,15 +1725,20 @@ export default function Detalhes() {
                   />
                   <TextInput
                     style={[styles.input, { color: primaryText }]}
-                    placeholder="Adicionar passeio"
+                    placeholder={copy.addTour}
                     placeholderTextColor={secondaryText}
                     value={novoPasseio}
                     onChangeText={setNovoPasseio}
                     onSubmitEditing={adicionarPasseio}
+                    accessibilityLabel={copy.addTour}
                   />
                 </View>
-
-                <Pressable style={styles.addButton} onPress={adicionarPasseio}>
+                <Pressable
+                  style={styles.addButton}
+                  onPress={adicionarPasseio}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.addTourAccessibility}
+                >
                   <Ionicons name="add" size={23} color="#FFFFFF" />
                 </Pressable>
               </View>
@@ -1351,8 +1748,8 @@ export default function Detalhes() {
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
-              title="Orçamento financeiro"
-              subtitle="Controle seus gastos durante a viagem"
+              title={copy.budget}
+              subtitle={copy.budgetSubtitle}
               icon="wallet-outline"
             />
 
@@ -1363,9 +1760,8 @@ export default function Detalhes() {
               ]}
             >
               <Text style={[styles.budgetLabel, { color: secondaryText }]}>
-                SALDO RESTANTE
+                {copy.remainingBalance}
               </Text>
-
               <Text
                 style={[
                   styles.budgetBalance,
@@ -1374,7 +1770,6 @@ export default function Detalhes() {
               >
                 {formatarMoeda(saldoRestante)}
               </Text>
-
               <View
                 style={[
                   styles.progressBackground,
@@ -1394,30 +1789,27 @@ export default function Detalhes() {
                   ]}
                 />
               </View>
-
               <Text style={[styles.budgetHint, { color: secondaryText }]}>
-                {percentualGasto.toFixed(0)}% do orçamento utilizado
+                {percentualGasto.toFixed(0)}% {copy.budgetUsed}
               </Text>
             </View>
 
             {editando ? (
               <>
                 {renderInput(
-                  `Orçamento total (${currency})`,
+                  `${copy.totalBudget} (${currency})`,
                   orcamentoEntrada,
                   setOrcamentoEntrada,
-                  "Informe o orçamento",
+                  copy.budgetPlaceholder,
                   "wallet-outline",
                   "numeric",
                 )}
-
                 {currency !== "BRL" &&
                   (!rates[currency] || rates[currency] <= 0) && (
                     <Text
                       style={[styles.currencyWarning, { color: "#D99A42" }]}
                     >
-                      Cotação indisponível. Atualize as cotações no Perfil para
-                      editar valores nesta moeda.
+                      {copy.quoteWarning}
                     </Text>
                   )}
               </>
@@ -1426,7 +1818,7 @@ export default function Detalhes() {
                 style={[styles.budgetRow, { borderBottomColor: borderColor }]}
               >
                 <Text style={[styles.budgetRowLabel, { color: secondaryText }]}>
-                  Orçamento total
+                  {copy.totalBudget}
                 </Text>
                 <Text style={[styles.budgetRowValue, { color: primaryText }]}>
                   {formatarMoeda(
@@ -1440,7 +1832,7 @@ export default function Detalhes() {
               style={[styles.budgetRow, { borderBottomColor: borderColor }]}
             >
               <Text style={[styles.budgetRowLabel, { color: secondaryText }]}>
-                Total de gastos
+                {copy.totalExpenses}
               </Text>
               <Text style={[styles.budgetRowValue, { color: primaryText }]}>
                 {formatarMoeda(totalGastos)}
@@ -1448,12 +1840,12 @@ export default function Detalhes() {
             </View>
 
             <Text style={[styles.expensesTitle, { color: primaryText }]}>
-              Gastos individuais
+              {copy.individualExpenses}
             </Text>
 
             {gastos.length === 0 ? (
               <Text style={[styles.emptyMessage, { color: secondaryText }]}>
-                Nenhum gasto registrado.
+                {copy.noExpenses}
               </Text>
             ) : (
               gastos.map((item, index) => (
@@ -1476,16 +1868,16 @@ export default function Detalhes() {
                       {item.nome}
                     </Text>
                   </View>
-
                   <View style={styles.expenseRight}>
                     <Text style={[styles.expenseValue, { color: primaryText }]}>
                       {formatarMoeda(item.valor)}
                     </Text>
-
                     {editando && (
                       <Pressable
                         onPress={() => removerGasto(index)}
                         hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${copy.removeExpenseAccessibility}: ${item.nome}`}
                       >
                         <Ionicons
                           name="trash-outline"
@@ -1510,13 +1902,13 @@ export default function Detalhes() {
                   <Ionicons name="create-outline" size={18} color={accent} />
                   <TextInput
                     style={[styles.input, { color: primaryText }]}
-                    placeholder="Nome do gasto"
+                    placeholder={copy.expenseName}
                     placeholderTextColor={secondaryText}
                     value={novoGastoNome}
                     onChangeText={setNovoGastoNome}
+                    accessibilityLabel={copy.expenseName}
                   />
                 </View>
-
                 <View style={styles.addRow}>
                   <View
                     style={[
@@ -1528,15 +1920,20 @@ export default function Detalhes() {
                     <Ionicons name="cash-outline" size={18} color={accent} />
                     <TextInput
                       style={[styles.input, { color: primaryText }]}
-                      placeholder={`Valor em ${currency}`}
+                      placeholder={`${copy.amount} (${currency})`}
                       placeholderTextColor={secondaryText}
                       keyboardType="decimal-pad"
                       value={novoGastoValor}
                       onChangeText={setNovoGastoValor}
+                      accessibilityLabel={`${copy.amount} (${currency})`}
                     />
                   </View>
-
-                  <Pressable style={styles.addButton} onPress={adicionarGasto}>
+                  <Pressable
+                    style={styles.addButton}
+                    onPress={adicionarGasto}
+                    accessibilityRole="button"
+                    accessibilityLabel={copy.addExpenseAccessibility}
+                  >
                     <Ionicons name="add" size={23} color="#FFFFFF" />
                   </Pressable>
                 </View>
@@ -1547,12 +1944,11 @@ export default function Detalhes() {
           <Pressable
             style={({ pressed }) => [
               styles.mainButton,
-              {
-                backgroundColor: accent,
-                opacity: pressed ? 0.85 : 1,
-              },
+              { backgroundColor: accent, opacity: pressed ? 0.85 : 1 },
             ]}
             onPress={() => (editando ? salvarEdicao() : iniciarEdicao())}
+            accessibilityRole="button"
+            accessibilityLabel={editando ? copy.saveChanges : copy.editInfo}
           >
             <Ionicons
               name={editando ? "save-outline" : "create-outline"}
@@ -1560,7 +1956,7 @@ export default function Detalhes() {
               color="#FFFFFF"
             />
             <Text style={styles.mainButtonText}>
-              {editando ? "Salvar alterações" : "Editar informações"}
+              {editando ? copy.saveChanges : copy.editInfo}
             </Text>
           </Pressable>
 
@@ -1570,11 +1966,13 @@ export default function Detalhes() {
               onPress={() => {
                 fecharCalendario();
                 setEditando(false);
-                carregarDetalhesViagem();
+                void carregarDetalhesViagem();
               }}
+              accessibilityRole="button"
+              accessibilityLabel={copy.cancelEditing}
             >
               <Text style={[styles.cancelText, { color: secondaryText }]}>
-                Cancelar edição
+                {copy.cancelEditing}
               </Text>
             </Pressable>
           )}
@@ -1732,12 +2130,8 @@ const styles = StyleSheet.create({
     minHeight: 47,
     justifyContent: "center",
   },
-  dateInputText: {
-    fontSize: 13,
-  },
-  datePickerCard: {
-    paddingTop: 19,
-  },
+  dateInputText: { fontSize: 13 },
+  datePickerCard: { paddingTop: 19 },
   datePickerHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1749,9 +2143,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 5,
   },
-  datePickerSubtitle: {
-    fontSize: 11,
-  },
+  datePickerSubtitle: { fontSize: 11 },
   iosDatePicker: {
     height: 165,
     alignSelf: "center",
@@ -1909,5 +2301,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     marginTop: 12,
+  },
+  errorMessage: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+    marginTop: 8,
+    maxWidth: 280,
+  },
+  retryButton: {
+    minWidth: 150,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 12,
+    marginTop: 20,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });

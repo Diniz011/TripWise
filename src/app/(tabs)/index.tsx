@@ -17,12 +17,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useLanguage } from "../../contexts/LanguageContext";
 import {
   agendarLembreteViagem,
   cancelarLembreteViagem,
   getNotificationPreferences,
   NOTIFICATIONS_STORAGE_KEY,
 } from "../../services/notifications";
+
+const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
 
 type Viagem = {
   id: string;
@@ -48,7 +51,206 @@ type NotificationItem = {
 
 type IconeTransporte = keyof typeof MaterialCommunityIcons.glyphMap;
 
-const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
+type HomeTranslations = {
+  subtitle: string;
+  heading: string;
+  headingAccent: string;
+  bannerTitle: string;
+  bannerDescription: string;
+  newTrip: string;
+  newTripDescription: string;
+  tripName: string;
+  destination: string;
+  transport: string;
+  tripDate: string;
+  selectTripDate: string;
+  finish: string;
+  addTrip: string;
+  myTrips: string;
+  plannedDestinations: string;
+  tripSingular: string;
+  tripPlural: string;
+  tripCreatedTitle: string;
+  tripCreatedMessage: string;
+  now: string;
+  attention: string;
+  fillFields: string;
+  success: string;
+  tripAdded: string;
+  error: string;
+  loadTripsError: string;
+  saveTripError: string;
+  deleteTrip: string;
+  deleteTripConfirm: string;
+  cancel: string;
+  delete: string;
+  tripDeleted: string;
+  tripDeletedMessage: string;
+  deleteTripError: string;
+  tripDetails: string;
+  journeyStarts: string;
+  emptyDescription: string;
+  selectDateAccessibility: string;
+};
+
+const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
+  "pt-BR": {
+    subtitle: "SUA PRÓXIMA AVENTURA COMEÇA AQUI",
+    heading: "Explore o mundo.",
+    headingAccent: "Viva cada destino.",
+    bannerTitle: "Planeje sem limites",
+    bannerDescription:
+      "Organize seus destinos e tenha cada detalhe da viagem em um só lugar.",
+    newTrip: "Nova viagem",
+    newTripDescription: "Comece a planejar sua próxima experiência",
+    tripName: "Nome da viagem",
+    destination: "Destino",
+    transport: "Meio de transporte",
+    tripDate: "Data da viagem",
+    selectTripDate: "Selecione a data da viagem",
+    finish: "Concluir",
+    addTrip: "Adicionar viagem",
+    myTrips: "Minhas viagens",
+    plannedDestinations: "Seus destinos planejados",
+    tripSingular: "viagem",
+    tripPlural: "viagens",
+    tripCreatedTitle: "Nova viagem adicionada!",
+    tripCreatedMessage:
+      "Sua viagem para {destination} foi cadastrada com sucesso.",
+    now: "Agora",
+    attention: "Atenção",
+    fillFields: "Preencha todos os campos para continuar.",
+    success: "Tudo certo!",
+    tripAdded: "Sua viagem foi adicionada.",
+    error: "Erro",
+    loadTripsError: "Não foi possível carregar suas viagens.",
+    saveTripError: "Não foi possível salvar sua viagem.",
+    deleteTrip: "Excluir viagem",
+    deleteTripConfirm: "Tem certeza de que deseja excluir esta viagem?",
+    cancel: "Cancelar",
+    delete: "Excluir",
+    tripDeleted: "Viagem excluída",
+    tripDeletedMessage: "A viagem para {destination} foi removida.",
+    deleteTripError: "Não foi possível excluir a viagem.",
+    tripDetails: "Ver detalhes da viagem",
+    journeyStarts: "Sua jornada começa aqui",
+    emptyDescription:
+      "Você ainda não possui viagens cadastradas. Adicione seu primeiro destino e comece a planejar!",
+    selectDateAccessibility: "Selecionar data da viagem",
+  },
+
+  en: {
+    subtitle: "YOUR NEXT ADVENTURE STARTS HERE",
+    heading: "Explore the world.",
+    headingAccent: "Experience every destination.",
+    bannerTitle: "Plan without limits",
+    bannerDescription:
+      "Organize your destinations and keep every travel detail in one place.",
+    newTrip: "New trip",
+    newTripDescription: "Start planning your next experience",
+    tripName: "Trip name",
+    destination: "Destination",
+    transport: "Means of transport",
+    tripDate: "Trip date",
+    selectTripDate: "Select your trip date",
+    finish: "Done",
+    addTrip: "Add trip",
+    myTrips: "My trips",
+    plannedDestinations: "Your planned destinations",
+    tripSingular: "trip",
+    tripPlural: "trips",
+    tripCreatedTitle: "New trip added!",
+    tripCreatedMessage:
+      "Your trip to {destination} has been successfully registered.",
+    now: "Now",
+    attention: "Attention",
+    fillFields: "Fill in all fields to continue.",
+    success: "All set!",
+    tripAdded: "Your trip has been added.",
+    error: "Error",
+    loadTripsError: "Could not load your trips.",
+    saveTripError: "Could not save your trip.",
+    deleteTrip: "Delete trip",
+    deleteTripConfirm: "Are you sure you want to delete this trip?",
+    cancel: "Cancel",
+    delete: "Delete",
+    tripDeleted: "Trip deleted",
+    tripDeletedMessage: "The trip to {destination} has been removed.",
+    deleteTripError: "Could not delete the trip.",
+    tripDetails: "View trip details",
+    journeyStarts: "Your journey starts here",
+    emptyDescription:
+      "You don't have any trips yet. Add your first destination and start planning!",
+    selectDateAccessibility: "Select trip date",
+  },
+
+  es: {
+    subtitle: "TU PRÓXIMA AVENTURA COMIENZA AQUÍ",
+    heading: "Explora el mundo.",
+    headingAccent: "Vive cada destino.",
+    bannerTitle: "Planifica sin límites",
+    bannerDescription:
+      "Organiza tus destinos y reúne todos los detalles del viaje en un solo lugar.",
+    newTrip: "Nuevo viaje",
+    newTripDescription: "Empieza a planificar tu próxima experiencia",
+    tripName: "Nombre del viaje",
+    destination: "Destino",
+    transport: "Medio de transporte",
+    tripDate: "Fecha del viaje",
+    selectTripDate: "Selecciona la fecha del viaje",
+    finish: "Finalizar",
+    addTrip: "Añadir viaje",
+    myTrips: "Mis viajes",
+    plannedDestinations: "Tus destinos planificados",
+    tripSingular: "viaje",
+    tripPlural: "viajes",
+    tripCreatedTitle: "¡Nuevo viaje añadido!",
+    tripCreatedMessage:
+      "Tu viaje a {destination} se ha registrado correctamente.",
+    now: "Ahora",
+    attention: "Atención",
+    fillFields: "Completa todos los campos para continuar.",
+    success: "¡Todo listo!",
+    tripAdded: "Tu viaje ha sido añadido.",
+    error: "Error",
+    loadTripsError: "No se pudieron cargar tus viajes.",
+    saveTripError: "No se pudo guardar tu viaje.",
+    deleteTrip: "Eliminar viaje",
+    deleteTripConfirm: "¿Estás seguro de que deseas eliminar este viaje?",
+    cancel: "Cancelar",
+    delete: "Eliminar",
+    tripDeleted: "Viaje eliminado",
+    tripDeletedMessage: "El viaje a {destination} ha sido eliminado.",
+    deleteTripError: "No se pudo eliminar el viaje.",
+    tripDetails: "Ver detalles del viaje",
+    journeyStarts: "Tu aventura comienza aquí",
+    emptyDescription:
+      "Todavía no tienes viajes registrados. ¡Añade tu primer destino y empieza a planificar!",
+    selectDateAccessibility: "Seleccionar fecha del viaje",
+  },
+};
+
+// Valida os dados de cada viagem antes de utilizá-los na interface.
+const isViagem = (valor: unknown): valor is Viagem => {
+  if (typeof valor !== "object" || valor === null) {
+    return false;
+  }
+
+  const viagem = valor as Record<string, unknown>;
+
+  return (
+    typeof viagem.id === "string" &&
+    viagem.id.trim().length > 0 &&
+    typeof viagem.nome === "string" &&
+    viagem.nome.trim().length > 0 &&
+    typeof viagem.destino === "string" &&
+    viagem.destino.trim().length > 0 &&
+    typeof viagem.transporte === "string" &&
+    viagem.transporte.trim().length > 0 &&
+    typeof viagem.data === "string" &&
+    viagem.data.trim().length > 0
+  );
+};
 
 // Identifica o meio de transporte e retorna seu ícone correspondente.
 const obterIconeTransporte = (transporte: string): IconeTransporte => {
@@ -61,7 +263,10 @@ const obterIconeTransporte = (transporte: string): IconeTransporte => {
   if (
     nomeNormalizado.includes("aviao") ||
     nomeNormalizado.includes("aereo") ||
-    nomeNormalizado.includes("airplane")
+    nomeNormalizado.includes("airplane") ||
+    nomeNormalizado.includes("plane") ||
+    nomeNormalizado.includes("avion") ||
+    nomeNormalizado.includes("aeroplano")
   ) {
     return "airplane";
   }
@@ -74,11 +279,19 @@ const obterIconeTransporte = (transporte: string): IconeTransporte => {
     return "motorbike";
   }
 
-  if (nomeNormalizado.includes("onibus") || nomeNormalizado.includes("bus")) {
+  if (
+    nomeNormalizado.includes("onibus") ||
+    nomeNormalizado.includes("bus") ||
+    nomeNormalizado.includes("autobus")
+  ) {
     return "bus";
   }
 
-  if (nomeNormalizado.includes("trem") || nomeNormalizado.includes("train")) {
+  if (
+    nomeNormalizado.includes("trem") ||
+    nomeNormalizado.includes("train") ||
+    nomeNormalizado.includes("tren")
+  ) {
     return "train";
   }
 
@@ -95,8 +308,8 @@ const obterIconeTransporte = (transporte: string): IconeTransporte => {
   if (
     nomeNormalizado.includes("carro") ||
     nomeNormalizado.includes("automovel") ||
-    nomeNormalizado.includes("automóvel") ||
-    nomeNormalizado.includes("car")
+    nomeNormalizado.includes("car") ||
+    nomeNormalizado.includes("coche")
   ) {
     return "car";
   }
@@ -104,7 +317,7 @@ const obterIconeTransporte = (transporte: string): IconeTransporte => {
   return "car";
 };
 
-// Converte uma data para o formato DD/MM/AAAA.
+// Mantém o formato DD/MM/AAAA para armazenamento.
 const formatarData = (date: Date) => {
   const dia = String(date.getDate()).padStart(2, "0");
   const mes = String(date.getMonth() + 1).padStart(2, "0");
@@ -138,10 +351,27 @@ const converterData = (valor: string): Date | null => {
   return date;
 };
 
+// Formata a data visualmente conforme o idioma selecionado.
+const formatarDataExibicao = (valor: string, locale: string) => {
+  const date = converterData(valor);
+
+  if (!date) {
+    return valor;
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+};
+
 export default function Index() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const router = useRouter();
+  const { language, locale } = useLanguage();
+  const copy = HOME_TRANSLATIONS[language];
 
   const [nomeViagem, setNomeViagem] = useState("");
   const [destino, setDestino] = useState("");
@@ -149,7 +379,6 @@ export default function Index() {
   const [data, setData] = useState("");
   const [viagens, setViagens] = useState<Viagem[]>([]);
 
-  // Estados do calendário.
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -165,16 +394,26 @@ export default function Index() {
     try {
       const dados = await AsyncStorage.getItem("@viagens");
 
-      if (dados) {
-        setViagens(JSON.parse(dados));
-      } else {
+      if (!dados) {
         setViagens([]);
+        return;
       }
+
+      const parsedData: unknown = JSON.parse(dados);
+
+      if (!Array.isArray(parsedData)) {
+        setViagens([]);
+        return;
+      }
+
+      const viagensValidas = parsedData.filter(isViagem);
+
+      setViagens(viagensValidas);
     } catch (error) {
       console.error("Erro ao carregar viagens:", error);
-      Alert.alert("Erro", "Não foi possível carregar suas viagens.");
+      Alert.alert(copy.error, copy.loadTripsError);
     }
-  }, []);
+  }, [copy.error, copy.loadTripsError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -182,7 +421,6 @@ export default function Index() {
     }, [carregarViagens]),
   );
 
-  // Abre o calendário com a data atual ou a data já selecionada.
   const abrirCalendario = () => {
     const dataAtual = converterData(data);
 
@@ -190,7 +428,6 @@ export default function Index() {
     setShowDatePicker(true);
   };
 
-  // Atualiza a data quando o usuário seleciona um dia.
   const alterarData = (novaData?: Date) => {
     if (novaData) {
       setSelectedDate(novaData);
@@ -198,7 +435,6 @@ export default function Index() {
     }
   };
 
-  // Registra uma notificação respeitando as preferências do usuário.
   const registrarNotificacao = async (
     tipo: "viagemCriada" | "viagemExcluida",
     titulo: string,
@@ -228,7 +464,7 @@ export default function Index() {
         id: Date.now().toString(),
         title: titulo,
         message: mensagem,
-        time: "Agora",
+        time: copy.now,
         category: "viagem",
         icon: "airplane-outline",
         color: accent,
@@ -258,7 +494,7 @@ export default function Index() {
       !transporte.trim() ||
       !data.trim()
     ) {
-      Alert.alert("Atenção", "Preencha todos os campos para continuar.");
+      Alert.alert(copy.attention, copy.fillFields);
       return;
     }
 
@@ -289,59 +525,58 @@ export default function Index() {
 
       await registrarNotificacao(
         "viagemCriada",
-        "Nova viagem adicionada!",
-        `Sua viagem para ${novaViagem.destino} foi cadastrada com sucesso.`,
+        copy.tripCreatedTitle,
+        copy.tripCreatedMessage.replace("{destination}", novaViagem.destino),
         novaViagem.id,
       );
 
-      Alert.alert("Tudo certo!", "Sua viagem foi adicionada.");
+      Alert.alert(copy.success, copy.tripAdded);
     } catch (error) {
       console.error("Erro ao salvar viagem:", error);
-      Alert.alert("Erro", "Não foi possível salvar sua viagem.");
+      Alert.alert(copy.error, copy.saveTripError);
     }
   };
 
   const deletarViagem = (id: string) => {
-    Alert.alert(
-      "Excluir viagem",
-      "Tem certeza de que deseja excluir esta viagem?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            const viagemExcluida = viagens.find((item) => item.id === id);
+    Alert.alert(copy.deleteTrip, copy.deleteTripConfirm, [
+      { text: copy.cancel, style: "cancel" },
+      {
+        text: copy.delete,
+        style: "destructive",
+        onPress: async () => {
+          const viagemExcluida = viagens.find((item) => item.id === id);
 
-            const lista = viagens.filter((item) => item.id !== id);
+          const lista = viagens.filter((item) => item.id !== id);
+
+          try {
+            await AsyncStorage.setItem("@viagens", JSON.stringify(lista));
+
+            setViagens(lista);
 
             try {
-              await AsyncStorage.setItem("@viagens", JSON.stringify(lista));
-
-              setViagens(lista);
-
-              try {
-                await cancelarLembreteViagem(id);
-              } catch (error) {
-                console.error("Erro ao cancelar lembrete da viagem:", error);
-              }
-
-              if (viagemExcluida) {
-                await registrarNotificacao(
-                  "viagemExcluida",
-                  "Viagem excluída",
-                  `A viagem para ${viagemExcluida.destino} foi removida.`,
-                  viagemExcluida.id,
-                );
-              }
+              await cancelarLembreteViagem(id);
             } catch (error) {
-              console.error("Erro ao excluir viagem:", error);
-              Alert.alert("Erro", "Não foi possível excluir a viagem.");
+              console.error("Erro ao cancelar lembrete da viagem:", error);
             }
-          },
+
+            if (viagemExcluida) {
+              await registrarNotificacao(
+                "viagemExcluida",
+                copy.tripDeleted,
+                copy.tripDeletedMessage.replace(
+                  "{destination}",
+                  viagemExcluida.destino,
+                ),
+                viagemExcluida.id,
+              );
+            }
+          } catch (error) {
+            console.error("Erro ao excluir viagem:", error);
+            Alert.alert(copy.error, copy.deleteTripError);
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const renderInput = (
@@ -372,13 +607,13 @@ export default function Index() {
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.subtitle, { color: secondaryText }]}>
-            SUA PRÓXIMA AVENTURA COMEÇA AQUI
+            {copy.subtitle}
           </Text>
           <Text style={[styles.heading, { color: primaryText }]}>
-            Explore o mundo.
+            {copy.heading}
           </Text>
           <Text style={[styles.headingAccent, { color: accent }]}>
-            Viva cada destino.
+            {copy.headingAccent}
           </Text>
         </View>
 
@@ -390,11 +625,10 @@ export default function Index() {
       <View style={[styles.banner, { backgroundColor: cardBackground }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.bannerTitle, { color: primaryText }]}>
-            Planeje sem limites
+            {copy.bannerTitle}
           </Text>
           <Text style={[styles.bannerDescription, { color: secondaryText }]}>
-            Organize seus destinos e tenha cada detalhe da viagem em um só
-            lugar.
+            {copy.bannerDescription}
           </Text>
         </View>
 
@@ -406,10 +640,10 @@ export default function Index() {
       <View style={styles.sectionHeader}>
         <View>
           <Text style={[styles.sectionTitle, { color: primaryText }]}>
-            Nova viagem
+            {copy.newTrip}
           </Text>
           <Text style={[styles.sectionSubtitle, { color: secondaryText }]}>
-            Comece a planejar sua próxima experiência
+            {copy.newTripDescription}
           </Text>
         </View>
         <Ionicons name="add-circle-outline" size={24} color={accent} />
@@ -417,22 +651,16 @@ export default function Index() {
 
       <View style={[styles.formCard, { backgroundColor: cardBackground }]}>
         {renderInput(
-          "Nome da viagem",
+          copy.tripName,
           nomeViagem,
           setNomeViagem,
           "bookmark-outline",
         )}
 
-        {renderInput("Destino", destino, setDestino, "location-outline")}
+        {renderInput(copy.destination, destino, setDestino, "location-outline")}
 
-        {renderInput(
-          "Meio de transporte",
-          transporte,
-          setTransporte,
-          "car-outline",
-        )}
+        {renderInput(copy.transport, transporte, setTransporte, "car-outline")}
 
-        {/* Campo de data: abre o calendário em vez do teclado. */}
         <Pressable
           style={[
             styles.inputContainer,
@@ -440,7 +668,7 @@ export default function Index() {
           ]}
           onPress={abrirCalendario}
           accessibilityRole="button"
-          accessibilityLabel="Selecionar data da viagem"
+          accessibilityLabel={copy.selectDateAccessibility}
         >
           <Ionicons name="calendar-outline" size={19} color={accent} />
 
@@ -450,7 +678,7 @@ export default function Index() {
               { color: data ? primaryText : secondaryText },
             ]}
           >
-            {data || "Data da viagem"}
+            {data ? formatarDataExibicao(data, locale) : copy.tripDate}
           </Text>
 
           <Ionicons
@@ -460,7 +688,6 @@ export default function Index() {
           />
         </Pressable>
 
-        {/* Calendário nativo para iPhone. */}
         {showDatePicker && Platform.OS === "ios" && (
           <View
             style={[
@@ -472,7 +699,7 @@ export default function Index() {
             ]}
           >
             <Text style={[styles.datePickerTitle, { color: primaryText }]}>
-              Selecione a data da viagem
+              {copy.selectTripDate}
             </Text>
 
             <DateTimePicker
@@ -480,7 +707,6 @@ export default function Index() {
               mode="date"
               display="spinner"
               onValueChange={(_event, novaData) => alterarData(novaData)}
-              locale="pt-BR"
               textColor={primaryText}
               style={styles.iosDatePicker}
             />
@@ -489,12 +715,11 @@ export default function Index() {
               style={[styles.datePickerButton, { backgroundColor: accent }]}
               onPress={() => setShowDatePicker(false)}
             >
-              <Text style={styles.datePickerButtonText}>Concluir</Text>
+              <Text style={styles.datePickerButtonText}>{copy.finish}</Text>
             </Pressable>
           </View>
         )}
 
-        {/* Calendário nativo para Android. */}
         {showDatePicker && Platform.OS === "android" && (
           <DateTimePicker
             value={selectedDate}
@@ -513,17 +738,17 @@ export default function Index() {
           onPress={salvarViagem}
         >
           <Ionicons name="add" size={21} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Adicionar viagem</Text>
+          <Text style={styles.addButtonText}>{copy.addTrip}</Text>
         </Pressable>
       </View>
 
       <View style={styles.listHeader}>
         <View>
           <Text style={[styles.sectionTitle, { color: primaryText }]}>
-            Minhas viagens
+            {copy.myTrips}
           </Text>
           <Text style={[styles.sectionSubtitle, { color: secondaryText }]}>
-            Seus destinos planejados
+            {copy.plannedDestinations}
           </Text>
         </View>
 
@@ -534,7 +759,8 @@ export default function Index() {
           ]}
         >
           <Text style={[styles.tripCountText, { color: accent }]}>
-            {viagens.length} {viagens.length === 1 ? "viagem" : "viagens"}
+            {viagens.length}{" "}
+            {viagens.length === 1 ? copy.tripSingular : copy.tripPlural}
           </Text>
         </View>
       </View>
@@ -559,10 +785,10 @@ export default function Index() {
         <View style={[styles.topBar, { borderBottomColor: borderColor }]}>
           <View>
             <Text style={[styles.topBarTitle, { color: primaryText }]}>
-              Viagens
+              {copy.myTrips}
             </Text>
             <Text style={[styles.topBarSubtitle, { color: secondaryText }]}>
-              Organize suas próximas aventuras
+              {copy.newTripDescription}
             </Text>
           </View>
 
@@ -647,7 +873,7 @@ export default function Index() {
                           { color: secondaryText },
                         ]}
                       >
-                        {item.data}
+                        {formatarDataExibicao(item.data, locale)}
                       </Text>
                     </View>
 
@@ -684,13 +910,15 @@ export default function Index() {
                   <Text
                     style={[styles.tripActionHint, { color: secondaryText }]}
                   >
-                    Ver detalhes da viagem
+                    {copy.tripDetails}
                   </Text>
 
                   <Pressable
                     onPress={() => deletarViagem(item.id)}
                     hitSlop={10}
                     style={styles.deleteButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={copy.deleteTrip}
                   >
                     <Ionicons name="trash-outline" size={19} color="#D96B6B" />
                   </Pressable>
@@ -711,11 +939,10 @@ export default function Index() {
                 <Ionicons name="map-outline" size={35} color={accent} />
               </View>
               <Text style={[styles.emptyTitle, { color: primaryText }]}>
-                Sua jornada começa aqui
+                {copy.journeyStarts}
               </Text>
               <Text style={[styles.emptyDescription, { color: secondaryText }]}>
-                Você ainda não possui viagens cadastradas. Adicione seu primeiro
-                destino e comece a planejar!
+                {copy.emptyDescription}
               </Text>
             </View>
           }
@@ -768,6 +995,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 22,
   },
+  headerIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 12,
+  },
   subtitle: {
     fontSize: 10,
     fontWeight: "800",
@@ -783,14 +1018,6 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: "800",
     letterSpacing: -0.8,
-  },
-  headerIcon: {
-    width: 55,
-    height: 55,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 10,
   },
   banner: {
     borderRadius: 19,

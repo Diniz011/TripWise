@@ -3,9 +3,28 @@ import { usePathname } from "expo-router";
 import { NativeTabs } from "expo-router/native-tabs";
 import { useCallback, useEffect, useState } from "react";
 import { DeviceEventEmitter } from "react-native";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const NOTIFICATIONS_STORAGE_KEY = "@tripwise_notificacoes";
 const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
+
+const TAB_TRANSLATIONS = {
+  "pt-BR": {
+    trips: "Viagens",
+    notifications: "Notificações",
+    profile: "Perfil",
+  },
+  en: {
+    trips: "Trips",
+    notifications: "Notifications",
+    profile: "Profile",
+  },
+  es: {
+    trips: "Viajes",
+    notifications: "Notificaciones",
+    profile: "Perfil",
+  },
+};
 
 type NotificationItem = {
   read: boolean;
@@ -13,6 +32,9 @@ type NotificationItem = {
 
 export default function TabLayout() {
   const pathname = usePathname();
+  const { language } = useLanguage();
+  const copy = TAB_TRANSLATIONS[language];
+
   const [unreadCount, setUnreadCount] = useState(0);
 
   const atualizarContador = useCallback(async () => {
@@ -76,7 +98,7 @@ export default function TabLayout() {
     <NativeTabs tintColor="#8FA255">
       {/* VIAGENS */}
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Viagens</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{copy.trips}</NativeTabs.Trigger.Label>
 
         <NativeTabs.Trigger.Icon
           sf={{
@@ -89,7 +111,9 @@ export default function TabLayout() {
 
       {/* NOTIFICAÇÕES */}
       <NativeTabs.Trigger name="notificacoes">
-        <NativeTabs.Trigger.Label>Notificações</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>
+          {copy.notifications}
+        </NativeTabs.Trigger.Label>
 
         <NativeTabs.Trigger.Icon
           sf={{
@@ -108,7 +132,7 @@ export default function TabLayout() {
 
       {/* PERFIL */}
       <NativeTabs.Trigger name="perfil">
-        <NativeTabs.Trigger.Label>Perfil</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{copy.profile}</NativeTabs.Trigger.Label>
 
         <NativeTabs.Trigger.Icon
           sf={{

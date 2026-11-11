@@ -12,7 +12,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ProfileIdentityCard from "../../components/ProfileIdentityCard";
 import { CurrencyCode, useCurrency } from "../../contexts/CurrencyContext";
+import {
+  LANGUAGE_OPTIONS,
+  LanguageCode,
+  useLanguage,
+} from "../../contexts/LanguageContext";
 import { ThemeMode, useTheme } from "../../contexts/ThemeContext";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -77,8 +83,216 @@ const CURRENCY_OPTIONS: {
   },
 ];
 
+const PROFILE_TRANSLATIONS = {
+  "pt-BR": {
+    profile: "Perfil",
+    subtitle: "Seu espaço no TripWise",
+    preferences: "Preferências",
+    currency: "Moeda",
+    brl: "Real brasileiro",
+    brlDesc: "Moeda do Brasil",
+    usd: "Dólar americano",
+    usdDesc: "Moeda dos Estados Unidos",
+    eur: "Euro",
+    eurDesc: "Moeda da União Europeia",
+    exchange: "Cotação em relação ao Real",
+    baseCurrency: "Moeda base",
+    unavailable: "Cotação indisponível",
+    savingCurrency: "Salvando moeda...",
+    language: "Idioma",
+    savingLanguage: "Salvando idioma...",
+    appearance: "Aparência",
+    light: "Claro",
+    lightDesc: "Utilizar sempre o tema claro.",
+    dark: "Escuro",
+    darkDesc: "Utilizar sempre o tema escuro.",
+    automatic: "Automático",
+    automaticDesc: "Acompanhar a aparência do iPhone.",
+    themeLight: "Tema claro",
+    themeDark: "Tema escuro",
+    applyingTheme: "Aplicando aparência...",
+    notifications: "Notificações",
+    notificationsDesc: "Personalize os avisos que deseja receber.",
+    loadingPreferences: "Carregando preferências...",
+    trips: "Viagens",
+    tripsDesc: "Acompanhe as mudanças nas suas viagens.",
+    tripCreated: "Viagem criada",
+    tripCreatedDesc: "Quando uma nova viagem for cadastrada.",
+    tripDeleted: "Viagem excluída",
+    tripDeletedDesc: "Quando uma viagem for removida.",
+    tripUpdated: "Alterações na viagem",
+    tripUpdatedDesc: "Quando informações forem atualizadas.",
+    tripReminders: "Lembretes de viagem",
+    tripRemindersDesc: "Avisos sobre a proximidade da viagem.",
+    lodgingTours: "Hospedagem e passeios",
+    lodgingToursDesc: "Receba atualizações sobre sua programação.",
+    lodging: "Hospedagem",
+    lodgingDesc: "Quando uma hospedagem for adicionada ou alterada.",
+    tours: "Passeios",
+    toursDesc: "Quando passeios forem adicionados ou removidos.",
+    finances: "Controle financeiro",
+    financesDesc: "Acompanhe o orçamento das suas viagens.",
+    budgetWarning: "Atenção ao orçamento",
+    budgetWarningDesc: "Quando seus gastos atingirem 80% do orçamento.",
+    budgetExceeded: "Orçamento ultrapassado",
+    budgetExceededDesc: "Quando seus gastos ultrapassarem o limite.",
+    notificationInfo:
+      "Essas preferências controlam os avisos exibidos dentro do TripWise. As notificações externas do iPhone serão implementadas posteriormente.",
+    about: "Sobre o aplicativo",
+    aboutTripWise: "Sobre o TripWise",
+    companion: "Seu companheiro de viagens.",
+    appVersion: "Versão do aplicativo",
+    version: "TripWise · Versão 1.0.2",
+    footer: "Planeje suas Viagens. Explore o mundo. Viva!",
+    error: "Erro",
+    savePreferenceError:
+      "Não foi possível salvar essa preferência. Tente novamente.",
+    themeError: "Não foi possível alterar a aparência. Tente novamente.",
+    currencyError: "Não foi possível alterar a moeda. Tente novamente.",
+    languageError: "Não foi possível alterar o idioma. Tente novamente.",
+  },
+
+  en: {
+    profile: "Profile",
+    subtitle: "Your space on TripWise",
+    preferences: "Preferences",
+    currency: "Currency",
+    brl: "Brazilian real",
+    brlDesc: "Currency of Brazil",
+    usd: "US dollar",
+    usdDesc: "Currency of the United States",
+    eur: "Euro",
+    eurDesc: "Currency of the European Union",
+    exchange: "Exchange rate against the Real",
+    baseCurrency: "Base currency",
+    unavailable: "Exchange rate unavailable",
+    savingCurrency: "Saving currency...",
+    language: "Language",
+    savingLanguage: "Saving language...",
+    appearance: "Appearance",
+    light: "Light",
+    lightDesc: "Always use light mode.",
+    dark: "Dark",
+    darkDesc: "Always use dark mode.",
+    automatic: "Automatic",
+    automaticDesc: "Follow your iPhone appearance.",
+    themeLight: "Light theme",
+    themeDark: "Dark theme",
+    applyingTheme: "Applying appearance...",
+    notifications: "Notifications",
+    notificationsDesc: "Customize the alerts you want to receive.",
+    loadingPreferences: "Loading preferences...",
+    trips: "Trips",
+    tripsDesc: "Keep track of changes to your trips.",
+    tripCreated: "Trip created",
+    tripCreatedDesc: "When a new trip is added.",
+    tripDeleted: "Trip deleted",
+    tripDeletedDesc: "When a trip is removed.",
+    tripUpdated: "Trip updated",
+    tripUpdatedDesc: "When trip information is updated.",
+    tripReminders: "Trip reminders",
+    tripRemindersDesc: "Alerts as your trip approaches.",
+    lodgingTours: "Accommodation and activities",
+    lodgingToursDesc: "Get updates about your itinerary.",
+    lodging: "Accommodation",
+    lodgingDesc: "When accommodation is added or changed.",
+    tours: "Activities",
+    toursDesc: "When activities are added or removed.",
+    finances: "Financial management",
+    financesDesc: "Keep track of your trip budget.",
+    budgetWarning: "Budget warning",
+    budgetWarningDesc: "When your spending reaches 80% of the budget.",
+    budgetExceeded: "Budget exceeded",
+    budgetExceededDesc: "When your spending exceeds the limit.",
+    notificationInfo:
+      "These preferences control the alerts displayed within TripWise. External iPhone notifications will be implemented later.",
+    about: "About the app",
+    aboutTripWise: "About TripWise",
+    companion: "Your travel companion.",
+    appVersion: "App version",
+    version: "TripWise · Version 1.0.2",
+    footer: "Plan your trips. Explore the world. Live!",
+    error: "Error",
+    savePreferenceError: "Could not save this preference. Please try again.",
+    themeError: "Could not change the appearance. Please try again.",
+    currencyError: "Could not change the currency. Please try again.",
+    languageError: "Could not change the language. Please try again.",
+  },
+
+  es: {
+    profile: "Perfil",
+    subtitle: "Tu espacio en TripWise",
+    preferences: "Preferencias",
+    currency: "Moneda",
+    brl: "Real brasileño",
+    brlDesc: "Moneda de Brasil",
+    usd: "Dólar estadounidense",
+    usdDesc: "Moneda de Estados Unidos",
+    eur: "Euro",
+    eurDesc: "Moneda de la Unión Europea",
+    exchange: "Tipo de cambio frente al Real",
+    baseCurrency: "Moneda base",
+    unavailable: "Tipo de cambio no disponible",
+    savingCurrency: "Guardando moneda...",
+    language: "Idioma",
+    savingLanguage: "Guardando idioma...",
+    appearance: "Apariencia",
+    light: "Claro",
+    lightDesc: "Usar siempre el tema claro.",
+    dark: "Oscuro",
+    darkDesc: "Usar siempre el tema oscuro.",
+    automatic: "Automático",
+    automaticDesc: "Seguir la apariencia del iPhone.",
+    themeLight: "Tema claro",
+    themeDark: "Tema oscuro",
+    applyingTheme: "Aplicando apariencia...",
+    notifications: "Notificaciones",
+    notificationsDesc: "Personaliza los avisos que deseas recibir.",
+    loadingPreferences: "Cargando preferencias...",
+    trips: "Viajes",
+    tripsDesc: "Sigue los cambios en tus viajes.",
+    tripCreated: "Viaje creado",
+    tripCreatedDesc: "Cuando se registre un nuevo viaje.",
+    tripDeleted: "Viaje eliminado",
+    tripDeletedDesc: "Cuando se elimine un viaje.",
+    tripUpdated: "Cambios en el viaje",
+    tripUpdatedDesc: "Cuando se actualice la información.",
+    tripReminders: "Recordatorios de viaje",
+    tripRemindersDesc: "Avisos sobre la proximidad del viaje.",
+    lodgingTours: "Alojamiento y actividades",
+    lodgingToursDesc: "Recibe actualizaciones sobre tu itinerario.",
+    lodging: "Alojamiento",
+    lodgingDesc: "Cuando se añada o modifique un alojamiento.",
+    tours: "Actividades",
+    toursDesc: "Cuando se añadan o eliminen actividades.",
+    finances: "Control financiero",
+    financesDesc: "Controla el presupuesto de tus viajes.",
+    budgetWarning: "Atención al presupuesto",
+    budgetWarningDesc: "Cuando tus gastos alcancen el 80% del presupuesto.",
+    budgetExceeded: "Presupuesto excedido",
+    budgetExceededDesc: "Cuando tus gastos superen el límite.",
+    notificationInfo:
+      "Estas preferencias controlan los avisos que se muestran dentro de TripWise. Las notificaciones externas del iPhone se implementarán más adelante.",
+    about: "Sobre la aplicación",
+    aboutTripWise: "Sobre TripWise",
+    companion: "Tu compañero de viajes.",
+    appVersion: "Versión de la aplicación",
+    version: "TripWise · Versión 1.0.2",
+    footer: "Planifica tus viajes. Explora el mundo. ¡Vive!",
+    error: "Error",
+    savePreferenceError:
+      "No se pudo guardar esta preferencia. Inténtalo de nuevo.",
+    themeError: "No se pudo cambiar la apariencia. Inténtalo de nuevo.",
+    currencyError: "No se pudo cambiar la moneda. Inténtalo de nuevo.",
+    languageError: "No se pudo cambiar el idioma. Inténtalo de nuevo.",
+  },
+} as const;
+
 export default function Perfil() {
   const { theme, isDark, setTheme } = useTheme();
+
+  const { language, setLanguage } = useLanguage();
+  const copy = PROFILE_TRANSLATIONS[language];
 
   const { currency, rates, loadingRates, setCurrency, refreshRates } =
     useCurrency();
@@ -90,6 +304,7 @@ export default function Perfil() {
   const [savingPreference, setSavingPreference] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
   const [savingCurrency, setSavingCurrency] = useState(false);
+  const [savingLanguage, setSavingLanguage] = useState(false);
 
   const preferencesRef = useRef<NotificationPreferences>(
     DEFAULT_NOTIFICATION_PREFERENCES,
@@ -171,10 +386,7 @@ export default function Perfil() {
           setPreferences(previousPreferences);
         }
 
-        Alert.alert(
-          "Erro",
-          "Não foi possível salvar essa preferência. Tente novamente.",
-        );
+        Alert.alert(copy.error, copy.savePreferenceError);
       }
     } finally {
       if (mountedRef.current) {
@@ -195,10 +407,7 @@ export default function Perfil() {
     } catch (error) {
       console.error("Erro ao alterar aparência:", error);
 
-      Alert.alert(
-        "Erro",
-        "Não foi possível alterar a aparência. Tente novamente.",
-      );
+      Alert.alert(copy.error, copy.themeError);
     } finally {
       if (mountedRef.current) {
         setSavingTheme(false);
@@ -218,7 +427,7 @@ export default function Perfil() {
     } catch (error) {
       console.error("Erro ao alterar moeda:", error);
 
-      Alert.alert("Erro", "Não foi possível alterar a moeda. Tente novamente.");
+      Alert.alert(copy.error, copy.currencyError);
     } finally {
       if (mountedRef.current) {
         setSavingCurrency(false);
@@ -234,69 +443,88 @@ export default function Perfil() {
     await refreshRates();
   }
 
+  async function handleLanguageChange(newLanguage: LanguageCode) {
+    if (newLanguage === language || savingLanguage) {
+      return;
+    }
+
+    setSavingLanguage(true);
+
+    try {
+      await setLanguage(newLanguage);
+    } catch (error) {
+      console.error("Erro ao alterar idioma:", error);
+      Alert.alert(copy.error, copy.languageError);
+    } finally {
+      if (mountedRef.current) {
+        setSavingLanguage(false);
+      }
+    }
+  }
+
   const notificationGroups = [
     {
-      title: "Viagens",
-      description: "Acompanhe as mudanças nas suas viagens.",
+      title: copy.trips,
+      description: copy.tripsDesc,
       items: [
         {
           key: "viagemCriada" as const,
-          title: "Viagem criada",
-          description: "Quando uma nova viagem for cadastrada.",
+          title: copy.tripCreated,
+          description: copy.tripCreatedDesc,
           icon: "airplane-outline" as const,
         },
         {
           key: "viagemExcluida" as const,
-          title: "Viagem excluída",
-          description: "Quando uma viagem for removida.",
+          title: copy.tripDeleted,
+          description: copy.tripDeletedDesc,
           icon: "trash-outline" as const,
         },
         {
           key: "viagemAtualizada" as const,
-          title: "Alterações na viagem",
-          description: "Quando informações forem atualizadas.",
+          title: copy.tripUpdated,
+          description: copy.tripUpdatedDesc,
           icon: "create-outline" as const,
         },
         {
           key: "lembretesViagem" as const,
-          title: "Lembretes de viagem",
-          description: "Avisos sobre a proximidade da viagem.",
+          title: copy.tripReminders,
+          description: copy.tripRemindersDesc,
           icon: "calendar-outline" as const,
         },
       ],
     },
     {
-      title: "Hospedagem e passeios",
-      description: "Receba atualizações sobre sua programação.",
+      title: copy.lodgingTours,
+      description: copy.lodgingToursDesc,
       items: [
         {
           key: "hospedagem" as const,
-          title: "Hospedagem",
-          description: "Quando uma hospedagem for adicionada ou alterada.",
+          title: copy.lodging,
+          description: copy.lodgingDesc,
           icon: "bed-outline" as const,
         },
         {
           key: "passeios" as const,
-          title: "Passeios",
-          description: "Quando passeios forem adicionados ou removidos.",
+          title: copy.tours,
+          description: copy.toursDesc,
           icon: "map-outline" as const,
         },
       ],
     },
     {
-      title: "Controle financeiro",
-      description: "Acompanhe o orçamento das suas viagens.",
+      title: copy.finances,
+      description: copy.financesDesc,
       items: [
         {
           key: "orcamento80" as const,
-          title: "Atenção ao orçamento",
-          description: "Quando seus gastos atingirem 80% do orçamento.",
+          title: copy.budgetWarning,
+          description: copy.budgetWarningDesc,
           icon: "alert-circle-outline" as const,
         },
         {
           key: "orcamentoExcedido" as const,
-          title: "Orçamento ultrapassado",
-          description: "Quando seus gastos ultrapassarem o limite.",
+          title: copy.budgetExceeded,
+          description: copy.budgetExceededDesc,
           icon: "wallet-outline" as const,
         },
       ],
@@ -305,10 +533,10 @@ export default function Perfil() {
 
   const currentThemeLabel =
     theme === "light"
-      ? "Tema claro"
+      ? copy.themeLight
       : theme === "dark"
-        ? "Tema escuro"
-        : "Automático";
+        ? copy.themeDark
+        : copy.automatic;
 
   const currentCurrency = CURRENCY_OPTIONS.find(
     (option) => option.value === currency,
@@ -329,8 +557,8 @@ export default function Perfil() {
           {/* CABEÇALHO */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Perfil</Text>
-              <Text style={styles.subtitle}>Seu espaço no TripWise</Text>
+              <Text style={styles.title}>{copy.profile}</Text>
+              <Text style={styles.subtitle}>{copy.subtitle}</Text>
             </View>
 
             <View style={styles.headerIcon}>
@@ -338,33 +566,11 @@ export default function Perfil() {
             </View>
           </View>
 
-          {/* CARTÃO DO PERFIL */}
-          <View style={styles.profileCard}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={38} color="#FFFFFF" />
-            </View>
-
-            <Text style={styles.profileName}>Viajante</Text>
-            <Text style={styles.profileDescription}>
-              Sua próxima aventura começa aqui.
-            </Text>
-
-            <View style={styles.profileDivider} />
-
-            <View style={styles.profileFooter}>
-              <Ionicons
-                name="airplane-outline"
-                size={18}
-                color={colors.green}
-              />
-              <Text style={styles.profileFooterText}>
-                Explore o mundo com TripWise
-              </Text>
-            </View>
-          </View>
+          {/* CARTÃO DE IDENTIDADE DO PERFIL */}
+          <ProfileIdentityCard colors={colors} />
 
           {/* PREFERÊNCIAS */}
-          <Text style={styles.sectionTitle}>Preferências</Text>
+          <Text style={styles.sectionTitle}>{copy.preferences}</Text>
 
           <View style={styles.sectionCard}>
             {/* MOEDA */}
@@ -379,9 +585,14 @@ export default function Perfil() {
                 </View>
 
                 <View style={styles.preferenceInfo}>
-                  <Text style={styles.preferenceTitle}>Moeda</Text>
+                  <Text style={styles.preferenceTitle}>{copy.currency}</Text>
                   <Text style={styles.preferenceDescription}>
-                    {currentCurrency?.title} ({currentCurrency?.symbol})
+                    {currency === "BRL"
+                      ? copy.brl
+                      : currency === "USD"
+                        ? copy.usd
+                        : copy.eur}{" "}
+                    ({currentCurrency?.symbol})
                   </Text>
                 </View>
               </View>
@@ -412,10 +623,19 @@ export default function Perfil() {
 
                       <View style={styles.currencyOptionInfo}>
                         <Text style={styles.currencyOptionTitle}>
-                          {option.title}
+                          {option.value === "BRL"
+                            ? copy.brl
+                            : option.value === "USD"
+                              ? copy.usd
+                              : copy.eur}
                         </Text>
+
                         <Text style={styles.currencyOptionDescription}>
-                          {option.description}
+                          {option.value === "BRL"
+                            ? copy.brlDesc
+                            : option.value === "USD"
+                              ? copy.usdDesc
+                              : copy.eurDesc}
                         </Text>
                       </View>
 
@@ -448,15 +668,15 @@ export default function Perfil() {
 
                   <View style={styles.exchangeRateTextContainer}>
                     <Text style={styles.exchangeRateTitle}>
-                      Cotação em relação ao Real
+                      {copy.exchange}
                     </Text>
 
                     <Text style={styles.exchangeRateValue}>
                       {currency === "BRL"
-                        ? "Moeda base"
+                        ? copy.baseCurrency
                         : selectedRate > 0
                           ? `1 BRL = ${selectedRate.toFixed(4)} ${currency}`
-                          : "Cotação indisponível"}
+                          : copy.unavailable}
                     </Text>
                   </View>
                 </View>
@@ -483,7 +703,7 @@ export default function Perfil() {
               {savingCurrency && (
                 <View style={styles.currencySaving}>
                   <ActivityIndicator size="small" color={colors.green} />
-                  <Text style={styles.loadingText}>Salvando moeda...</Text>
+                  <Text style={styles.loadingText}>{copy.savingCurrency}</Text>
                 </View>
               )}
             </View>
@@ -491,21 +711,78 @@ export default function Perfil() {
             <View style={styles.divider} />
 
             {/* IDIOMA */}
-            <View style={styles.preferenceRow}>
-              <View style={styles.preferenceIcon}>
-                <Ionicons
-                  name="language-outline"
-                  size={21}
-                  color={colors.green}
-                />
+            <View style={styles.themeSection}>
+              <View style={styles.themeHeader}>
+                <View style={styles.preferenceIcon}>
+                  <Ionicons
+                    name="language-outline"
+                    size={21}
+                    color={colors.green}
+                  />
+                </View>
+
+                <View style={styles.preferenceInfo}>
+                  <Text style={styles.preferenceTitle}>{copy.language}</Text>
+
+                  <Text style={styles.preferenceDescription}>
+                    {
+                      LANGUAGE_OPTIONS.find(
+                        (option) => option.value === language,
+                      )?.title
+                    }
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.preferenceInfo}>
-                <Text style={styles.preferenceTitle}>Idioma</Text>
-                <Text style={styles.preferenceDescription}>
-                  Português (Brasil)
-                </Text>
+              <View style={styles.themeOptions}>
+                {LANGUAGE_OPTIONS.map((option) => {
+                  const selected = language === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.themeOption,
+                        selected && styles.themeOptionSelected,
+                      ]}
+                      onPress={() => {
+                        void handleLanguageChange(option.value);
+                      }}
+                      disabled={savingLanguage}
+                    >
+                      <View style={styles.themeOptionIcon}>
+                        <Text style={{ fontSize: 21 }}>{option.flag}</Text>
+                      </View>
+
+                      <View style={styles.themeOptionInfo}>
+                        <Text style={styles.themeOptionTitle}>
+                          {option.title}
+                        </Text>
+
+                        <Text style={styles.themeOptionDescription}>
+                          {option.nativeTitle}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.radioOuter,
+                          selected && styles.radioOuterSelected,
+                        ]}
+                      >
+                        {selected && <View style={styles.radioInner} />}
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </View>
+
+              {savingLanguage && (
+                <View style={styles.themeSaving}>
+                  <ActivityIndicator size="small" color={colors.green} />
+                  <Text style={styles.loadingText}>{copy.savingLanguage}</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.divider} />
@@ -522,7 +799,8 @@ export default function Perfil() {
                 </View>
 
                 <View style={styles.preferenceInfo}>
-                  <Text style={styles.preferenceTitle}>Aparência</Text>
+                  <Text style={styles.preferenceTitle}>{copy.appearance}</Text>
+
                   <Text style={styles.preferenceDescription}>
                     {currentThemeLabel}
                   </Text>
@@ -555,10 +833,19 @@ export default function Perfil() {
 
                       <View style={styles.themeOptionInfo}>
                         <Text style={styles.themeOptionTitle}>
-                          {option.title}
+                          {option.value === "light"
+                            ? copy.light
+                            : option.value === "dark"
+                              ? copy.dark
+                              : copy.automatic}
                         </Text>
+
                         <Text style={styles.themeOptionDescription}>
-                          {option.description}
+                          {option.value === "light"
+                            ? copy.lightDesc
+                            : option.value === "dark"
+                              ? copy.darkDesc
+                              : copy.automaticDesc}
                         </Text>
                       </View>
 
@@ -578,7 +865,7 @@ export default function Perfil() {
               {savingTheme && (
                 <View style={styles.themeSaving}>
                   <ActivityIndicator size="small" color={colors.green} />
-                  <Text style={styles.loadingText}>Aplicando aparência...</Text>
+                  <Text style={styles.loadingText}>{copy.applyingTheme}</Text>
                 </View>
               )}
             </View>
@@ -587,9 +874,10 @@ export default function Perfil() {
           {/* NOTIFICAÇÕES */}
           <View style={styles.notificationHeader}>
             <View style={styles.notificationHeaderInfo}>
-              <Text style={styles.sectionTitle}>Notificações</Text>
+              <Text style={styles.sectionTitle}>{copy.notifications}</Text>
+
               <Text style={styles.sectionDescription}>
-                Personalize os avisos que deseja receber.
+                {copy.notificationsDesc}
               </Text>
             </View>
 
@@ -605,13 +893,14 @@ export default function Perfil() {
           {loadingPreferences ? (
             <View style={styles.loadingCard}>
               <ActivityIndicator size="small" color={colors.green} />
-              <Text style={styles.loadingText}>Carregando preferências...</Text>
+              <Text style={styles.loadingText}>{copy.loadingPreferences}</Text>
             </View>
           ) : (
             <>
               {notificationGroups.map((group) => (
                 <View key={group.title} style={styles.notificationGroup}>
                   <Text style={styles.groupTitle}>{group.title}</Text>
+
                   <Text style={styles.groupDescription}>
                     {group.description}
                   </Text>
@@ -632,6 +921,7 @@ export default function Perfil() {
                             <Text style={styles.preferenceTitle}>
                               {item.title}
                             </Text>
+
                             <Text style={styles.preferenceDescription}>
                               {item.description}
                             </Text>
@@ -671,15 +961,14 @@ export default function Perfil() {
               size={18}
               color={colors.secondary}
             />
+
             <Text style={styles.notificationInfoText}>
-              Essas preferências controlam os avisos exibidos dentro do
-              TripWise. As notificações externas do iPhone serão implementadas
-              posteriormente.
+              {copy.notificationInfo}
             </Text>
           </View>
 
           {/* SOBRE O APLICATIVO */}
-          <Text style={styles.sectionTitle}>Sobre o aplicativo</Text>
+          <Text style={styles.sectionTitle}>{copy.about}</Text>
 
           <View style={styles.sectionCard}>
             <View style={styles.preferenceRow}>
@@ -692,9 +981,10 @@ export default function Perfil() {
               </View>
 
               <View style={styles.preferenceInfo}>
-                <Text style={styles.preferenceTitle}>Sobre o TripWise</Text>
+                <Text style={styles.preferenceTitle}>{copy.aboutTripWise}</Text>
+
                 <Text style={styles.preferenceDescription}>
-                  Seu companheiro de viagens.
+                  {copy.companion}
                 </Text>
               </View>
             </View>
@@ -711,10 +1001,9 @@ export default function Perfil() {
               </View>
 
               <View style={styles.preferenceInfo}>
-                <Text style={styles.preferenceTitle}>Versão do aplicativo</Text>
-                <Text style={styles.preferenceDescription}>
-                  TripWise · Versão 1.0.2
-                </Text>
+                <Text style={styles.preferenceTitle}>{copy.appVersion}</Text>
+
+                <Text style={styles.preferenceDescription}>{copy.version}</Text>
               </View>
             </View>
           </View>
@@ -722,10 +1011,10 @@ export default function Perfil() {
           {/* RODAPÉ */}
           <View style={styles.footer}>
             <Ionicons name="airplane" size={17} color={colors.green} />
+
             <Text style={styles.footerText}>TripWise</Text>
-            <Text style={styles.footerSubtitle}>
-              Planeje suas Viagens. Explore o mundo. Viva!
-            </Text>
+
+            <Text style={styles.footerSubtitle}>{copy.footer}</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -781,50 +1070,6 @@ function createStyles(colors: {
       backgroundColor: colors.iconBackground,
       justifyContent: "center",
       alignItems: "center",
-    },
-    profileCard: {
-      backgroundColor: colors.card,
-      borderRadius: 23,
-      padding: 25,
-      alignItems: "center",
-      marginBottom: 29,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    avatar: {
-      width: 86,
-      height: 86,
-      borderRadius: 43,
-      backgroundColor: colors.green,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 15,
-    },
-    profileName: {
-      fontSize: 22,
-      fontWeight: "800",
-      color: colors.text,
-    },
-    profileDescription: {
-      fontSize: 13,
-      color: colors.secondary,
-      marginTop: 6,
-    },
-    profileDivider: {
-      height: 1,
-      backgroundColor: colors.border,
-      width: "100%",
-      marginVertical: 20,
-    },
-    profileFooter: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    profileFooterText: {
-      fontSize: 13,
-      color: colors.secondary,
-      fontWeight: "500",
     },
     sectionTitle: {
       fontSize: 17,

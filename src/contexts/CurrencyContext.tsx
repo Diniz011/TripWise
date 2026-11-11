@@ -1,13 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
+import { useLanguage } from "./LanguageContext";
 
 const CURRENCY_STORAGE_KEY = "@tripwise_moeda";
 const RATES_STORAGE_KEY = "@tripwise_cotacoes";
@@ -53,12 +54,27 @@ const CurrencyContext = createContext<CurrencyContextData | undefined>(
 );
 
 export function CurrencyProvider({ children }: CurrencyProviderProps) {
+  const { language } = useLanguage();
+
   const [currency, setCurrencyState] = useState<CurrencyCode>("BRL");
 
   const [rates, setRates] = useState<ExchangeRates>(DEFAULT_RATES);
 
   const [loadingCurrency, setLoadingCurrency] = useState(true);
   const [loadingRates, setLoadingRates] = useState(true);
+
+  // Define o padrão regional de acordo com o idioma selecionado.
+  const numberLocale = useMemo(() => {
+    switch (language) {
+      case "en":
+        return "en-US";
+      case "es":
+        return "es-ES";
+      case "pt-BR":
+      default:
+        return "pt-BR";
+    }
+  }, [language]);
 
   // Carrega a moeda e as cotações salvas.
   useEffect(() => {
@@ -205,17 +221,17 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
     [currency, rates],
   );
 
-  // Formata o valor convertido de acordo com a moeda escolhida.
+  // Formata o valor de acordo com o idioma e a moeda selecionados.
   const formatAmount = useCallback(
     (amountInBRL: number) => {
       const convertedAmount = convertFromBRL(amountInBRL);
 
-      return new Intl.NumberFormat("pt-BR", {
+      return new Intl.NumberFormat(numberLocale, {
         style: "currency",
         currency,
       }).format(convertedAmount);
     },
-    [convertFromBRL, currency],
+    [convertFromBRL, currency, numberLocale],
   );
 
   const value = useMemo(
