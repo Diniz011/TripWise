@@ -2,9 +2,9 @@
 
 > 🚧 **Status do Projeto:** Em desenvolvimento ativo. Novas funcionalidades, melhorias de interface e aprimoramentos estão sendo implementados continuamente.
 
-O **TripWise** é um aplicativo de planejamento e organização de viagens desenvolvido com **React Native** e **Expo Router**.
+O **TripWise** é um aplicativo de planejamento e organização de viagens desenvolvido com **React Native**, **Expo** e **Expo Router**.
 
-O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios, acompanhar despesas e receber notificações importantes sobre suas viagens.
+O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios, acompanhar despesas, configurar preferências pessoais e receber notificações importantes.
 
 ## ✨ Funcionalidades
 
@@ -15,6 +15,8 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Visualização de informações detalhadas de cada viagem.
 - Gerenciamento de informações de hospedagem, incluindo nome, endereço e período de estadia.
 - Navegação entre a lista de viagens e seus respectivos detalhes.
+- Persistência local das viagens.
+- Validação dos dados recuperados do armazenamento para evitar registros inválidos e problemas na interface.
 
 ### 💰 Controle Financeiro
 
@@ -33,13 +35,33 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Conversão automática de orçamentos e despesas conforme a moeda selecionada.
 - Formatação dos valores financeiros de acordo com a moeda escolhida.
 - Persistência dos valores financeiros em Reais (BRL), utilizados como moeda-base para evitar conversões sucessivas e diferenças acumuladas.
-- Armazenamento da preferência de moeda selecionada.
+- Armazenamento local da preferência de moeda selecionada.
+- Gerenciamento das preferências e cotações por meio do `CurrencyContext`.
 
 ### 📍 Planejamento de Passeios
 
 - Cadastro de pontos turísticos e atividades.
 - Gerenciamento dos passeios planejados.
 - Organização das atividades relacionadas a cada viagem.
+
+### 👤 Perfil do Usuário
+
+- Tela dedicada ao gerenciamento do perfil.
+- Componente `ProfileIdentityCard` para apresentação da identidade do usuário.
+- Organização das informações do perfil por meio de um serviço dedicado.
+- Separação das responsabilidades relacionadas aos dados do perfil.
+- Integração das informações do perfil à experiência do aplicativo.
+
+### 🌎 Internacionalização
+
+- Suporte a três idiomas:
+  - Português (Brasil).
+  - Inglês.
+  - Espanhol.
+- Seleção de idioma nas preferências do aplicativo.
+- Organização das traduções por meio do `LanguageContext`.
+- Atualização dos textos da interface conforme o idioma selecionado.
+- Persistência da preferência de idioma entre sessões.
 
 ### 🔔 Sistema de Notificações
 
@@ -65,6 +87,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Exclusão de todas as notificações com confirmação.
 - Abertura dos detalhes da viagem relacionada ao tocar em uma notificação.
 - Atualização do contador de notificações na navegação do aplicativo.
+- Melhorias na organização e no gerenciamento das notificações.
 
 ### 🎨 Interface e Experiência do Usuário
 
@@ -76,6 +99,9 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Componentes com animações e interações.
 - Seleção de datas com componente nativo.
 - Interface adaptada à experiência do usuário em dispositivos móveis.
+- Melhorias na navegação e na organização dos componentes.
+- Aprimoramentos de acessibilidade, incluindo identificação de elementos interativos.
+- Melhorias na consistência visual e na experiência entre as telas.
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -135,13 +161,17 @@ Para verificar a tipagem TypeScript:
 npx tsc --noEmit
 ```
 
-## 💾 Armazenamento e Notificações
+## 💾 Armazenamento e Persistência
 
-O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, moeda selecionada e notificações.
+O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, idioma, moeda selecionada, dados do perfil e notificações, conforme os recursos implementados.
 
 Os valores financeiros são armazenados internamente em Reais (BRL). A conversão para Dólar (USD) ou Euro (EUR) acontece conforme a moeda selecionada pelo usuário.
 
 As cotações cambiais são consultadas por meio de uma API externa e armazenadas localmente para utilização no aplicativo.
+
+Os dados recuperados do armazenamento passam por validações antes de serem utilizados pela interface, contribuindo para a estabilidade do aplicativo.
+
+## 🔔 Notificações Locais
 
 Os lembretes de viagem são programados localmente por meio do `expo-notifications`. Eles não dependem de um servidor de notificações push remoto.
 
