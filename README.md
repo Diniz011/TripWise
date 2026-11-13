@@ -1,10 +1,10 @@
 # ✈️ TripWise
 
-> 🚧 **Status do Projeto:** Em desenvolvimento ativo. Novas funcionalidades, melhorias de interface e aprimoramentos estão sendo implementados continuamente.
+> 🚧 **Status do Projeto:** Em desenvolvimento ativo. Novas funcionalidades, melhorias de interface e aprimoramentos são implementados continuamente.
 
 O **TripWise** é um aplicativo de planejamento e organização de viagens desenvolvido com **React Native**, **Expo** e **Expo Router**.
 
-O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios, acompanhar despesas, configurar preferências pessoais, receber notificações importantes e organizar seus roteiros de forma inteligente.
+O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios, acompanhar despesas, configurar preferências pessoais, receber notificações, consultar informações climáticas e organizar seus documentos e roteiros de forma inteligente.
 
 ## ✨ Funcionalidades
 
@@ -14,6 +14,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Edição e exclusão de viagens.
 - Visualização de informações detalhadas de cada viagem.
 - Gerenciamento de informações de hospedagem, incluindo nome, endereço e período de estadia.
+- Visualização das datas de início e término da viagem.
 - Navegação entre a lista de viagens e seus respectivos detalhes.
 - Persistência local das viagens.
 - Validação dos dados recuperados do armazenamento para evitar registros inválidos e problemas na interface.
@@ -58,6 +59,37 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Suporte aos idiomas Português, Inglês e Espanhol.
 - Suporte aos modos claro e escuro.
 
+### ☑️ Checklist da Viagem
+
+- Tela dedicada à organização dos itens necessários para a viagem.
+- Gerenciamento dos itens do checklist.
+- Organização dos itens para facilitar a preparação antes da partida.
+- Acompanhamento dos itens concluídos e pendentes.
+- Persistência local das informações por viagem.
+- Interface integrada aos idiomas e temas do aplicativo.
+
+### 🌤️ Clima Inteligente
+
+- Tela dedicada à consulta de informações climáticas relacionadas à viagem.
+- Integração com o planejamento da viagem selecionada.
+- Apresentação das informações meteorológicas para auxiliar na preparação do viajante.
+- Interface integrada aos idiomas Português, Inglês e Espanhol.
+- Suporte aos modos claro e escuro.
+
+### 🧳 Carteira de Viagem
+
+- Tela dedicada à organização de informações importantes da viagem.
+- Organização dos registros em três categorias:
+  - Documentos.
+  - Passagens.
+  - Reservas.
+- Cadastro, edição e exclusão de registros.
+- Armazenamento de informações como título, detalhes, data, local e observações.
+- Contadores para acompanhar os registros organizados.
+- Persistência local dos dados associados a cada viagem.
+- Suporte aos idiomas Português, Inglês e Espanhol.
+- Suporte aos modos claro e escuro.
+
 ### 👤 Perfil do Usuário
 
 - Tela dedicada ao gerenciamento do perfil.
@@ -77,6 +109,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Atualização dos textos da interface conforme o idioma selecionado.
 - Persistência da preferência de idioma entre sessões.
 - Formatação de datas conforme a localidade selecionada.
+- Internacionalização dos componentes de seleção de datas.
 
 ### 🔔 Sistema de Notificações
 
@@ -103,7 +136,6 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Abertura dos detalhes da viagem relacionada ao tocar em uma notificação.
 - Atualização do contador de notificações na navegação do aplicativo.
 - Sincronização das alterações na central de notificações.
-- Melhorias na organização e no gerenciamento das notificações.
 
 ### 🎨 Interface e Experiência do Usuário
 
@@ -181,13 +213,15 @@ npx tsc --noEmit
 
 ## 💾 Armazenamento e Persistência
 
-O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, idioma, moeda selecionada, dados do perfil, notificações e roteiros, conforme os recursos implementados.
+O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, idioma, moeda selecionada, dados do perfil, notificações, roteiros, checklists e registros da Carteira de Viagem, conforme os recursos implementados.
 
 Os valores financeiros são armazenados internamente em Reais (BRL). A conversão para Dólar (USD) ou Euro (EUR) acontece conforme a moeda selecionada pelo usuário.
 
 As cotações cambiais são consultadas por meio de uma API externa e armazenadas localmente para utilização no aplicativo.
 
 Os dados recuperados do armazenamento passam por validações antes de serem utilizados pela interface, contribuindo para a estabilidade do aplicativo.
+
+**Observação:** Os dados armazenados localmente pelo AsyncStorage não devem ser considerados um cofre criptografado para documentos ou informações altamente sensíveis.
 
 ## 🔔 Notificações Locais
 
