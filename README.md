@@ -4,7 +4,7 @@
 
 O **TripWise** é um aplicativo de planejamento e organização de viagens desenvolvido com **React Native**, **Expo** e **Expo Router**.
 
-O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios, acompanhar despesas, configurar preferências pessoais e receber notificações importantes.
+O objetivo é oferecer uma experiência completa para que os usuários possam organizar suas viagens em um só lugar, gerenciar orçamentos, planejar passeios, acompanhar despesas, configurar preferências pessoais, receber notificações importantes e organizar seus roteiros de forma inteligente.
 
 ## ✨ Funcionalidades
 
@@ -44,6 +44,20 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Gerenciamento dos passeios planejados.
 - Organização das atividades relacionadas a cada viagem.
 
+### 🗺️ Roteiro Inteligente
+
+- Tela dedicada à organização do roteiro de viagem por dia.
+- Cadastro e gerenciamento de atividades para cada data do roteiro.
+- Organização das atividades por horário.
+- Reordenação manual das atividades planejadas.
+- Integração com as informações da viagem selecionada.
+- Definição automática do período do roteiro com base nas datas da hospedagem, quando disponíveis.
+- Utilização do período da viagem como referência quando não há datas de hospedagem cadastradas.
+- Limite de planejamento de até 60 dias.
+- Persistência local das atividades e dos roteiros.
+- Suporte aos idiomas Português, Inglês e Espanhol.
+- Suporte aos modos claro e escuro.
+
 ### 👤 Perfil do Usuário
 
 - Tela dedicada ao gerenciamento do perfil.
@@ -62,6 +76,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Organização das traduções por meio do `LanguageContext`.
 - Atualização dos textos da interface conforme o idioma selecionado.
 - Persistência da preferência de idioma entre sessões.
+- Formatação de datas conforme a localidade selecionada.
 
 ### 🔔 Sistema de Notificações
 
@@ -87,6 +102,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Exclusão de todas as notificações com confirmação.
 - Abertura dos detalhes da viagem relacionada ao tocar em uma notificação.
 - Atualização do contador de notificações na navegação do aplicativo.
+- Sincronização das alterações na central de notificações.
 - Melhorias na organização e no gerenciamento das notificações.
 
 ### 🎨 Interface e Experiência do Usuário
@@ -98,6 +114,8 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Tab Bar flutuante.
 - Componentes com animações e interações.
 - Seleção de datas com componente nativo.
+- Botões e elementos interativos com visual minimalista.
+- Aprimoramentos visuais para uma experiência mais limpa e consistente.
 - Interface adaptada à experiência do usuário em dispositivos móveis.
 - Melhorias na navegação e na organização dos componentes.
 - Aprimoramentos de acessibilidade, incluindo identificação de elementos interativos.
@@ -163,7 +181,7 @@ npx tsc --noEmit
 
 ## 💾 Armazenamento e Persistência
 
-O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, idioma, moeda selecionada, dados do perfil e notificações, conforme os recursos implementados.
+O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, idioma, moeda selecionada, dados do perfil, notificações e roteiros, conforme os recursos implementados.
 
 Os valores financeiros são armazenados internamente em Reais (BRL). A conversão para Dólar (USD) ou Euro (EUR) acontece conforme a moeda selecionada pelo usuário.
 

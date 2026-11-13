@@ -25,6 +25,7 @@ import {
   NOTIFICATIONS_STORAGE_KEY,
 } from "../../services/notifications";
 
+const TRIPS_STORAGE_KEY = "@viagens";
 const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
 
 type Viagem = {
@@ -256,6 +257,17 @@ const isViagem = (valor: unknown): valor is Viagem => {
   );
 };
 
+// Valida a lista inteira e impede IDs duplicados.
+const isListaViagens = (valor: unknown): valor is Viagem[] => {
+  if (!Array.isArray(valor) || !valor.every(isViagem)) {
+    return false;
+  }
+
+  const ids = new Set(valor.map((viagem) => viagem.id));
+
+  return ids.size === valor.length;
+};
+
 // Identifica o meio de transporte e retorna seu ícone correspondente.
 const obterIconeTransporte = (transporte: string): IconeTransporte => {
   const nomeNormalizado = transporte
@@ -396,23 +408,20 @@ export default function Index() {
 
   const carregarViagens = useCallback(async () => {
     try {
-      const dados = await AsyncStorage.getItem("@viagens");
+      const dados = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
 
-      if (!dados) {
+      if (dados === null) {
         setViagens([]);
         return;
       }
 
       const parsedData: unknown = JSON.parse(dados);
 
-      if (!Array.isArray(parsedData)) {
-        setViagens([]);
-        return;
+      if (!isListaViagens(parsedData)) {
+        throw new Error("Os dados armazenados das viagens são inválidos.");
       }
 
-      const viagensValidas = parsedData.filter(isViagem);
-
-      setViagens(viagensValidas);
+      setViagens(parsedData);
     } catch (error) {
       console.error("Erro ao carregar viagens:", error);
       Alert.alert(copy.error, copy.loadTripsError);
@@ -457,7 +466,7 @@ export default function Index() {
       let notificacoes: NotificationItem[] = [];
 
       if (dados) {
-        const parsedData = JSON.parse(dados);
+        const parsedData: unknown = JSON.parse(dados);
 
         if (Array.isArray(parsedData)) {
           notificacoes = parsedData;
@@ -502,18 +511,40 @@ export default function Index() {
       return;
     }
 
-    const novaViagem: Viagem = {
-      id: Date.now().toString(),
-      nome: nomeViagem.trim(),
-      destino: destino.trim(),
-      transporte: transporte.trim(),
-      data: data.trim(),
-    };
-
-    const lista = [...viagens, novaViagem];
-
     try {
-      await AsyncStorage.setItem("@viagens", JSON.stringify(lista));
+      // Recupera os dados mais recentes antes de salvar.
+      const dados = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
+
+      let listaAtual: Viagem[] = [];
+
+      if (dados !== null) {
+        const parsedData: unknown = JSON.parse(dados);
+
+        if (!isListaViagens(parsedData)) {
+          throw new Error("Os dados armazenados das viagens são inválidos.");
+        }
+
+        listaAtual = parsedData;
+      }
+
+      // Garante que o novo ID não seja igual ao de outra viagem.
+      let novoId = Date.now();
+
+      while (listaAtual.some((viagem) => viagem.id === String(novoId))) {
+        novoId += 1;
+      }
+
+      const novaViagem: Viagem = {
+        id: String(novoId),
+        nome: nomeViagem.trim(),
+        destino: destino.trim(),
+        transporte: transporte.trim(),
+        data: data.trim(),
+      };
+
+      const lista = [...listaAtual, novaViagem];
+
+      await AsyncStorage.setItem(TRIPS_STORAGE_KEY, JSON.stringify(lista));
 
       setViagens(lista);
       setNomeViagem("");
@@ -548,12 +579,32 @@ export default function Index() {
         text: copy.delete,
         style: "destructive",
         onPress: async () => {
-          const viagemExcluida = viagens.find((item) => item.id === id);
-
-          const lista = viagens.filter((item) => item.id !== id);
-
           try {
-            await AsyncStorage.setItem("@viagens", JSON.stringify(lista));
+            // Lê novamente os dados para evitar excluir com uma lista desatualizada.
+            const dados = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
+
+            let listaAtual: Viagem[] = [];
+
+            if (dados !== null) {
+              const parsedData: unknown = JSON.parse(dados);
+
+              if (!isListaViagens(parsedData)) {
+                throw new Error(
+                  "Os dados armazenados das viagens são inválidos.",
+                );
+              }
+
+              listaAtual = parsedData;
+            }
+
+            const viagemExcluida = listaAtual.find((item) => item.id === id);
+
+            const lista = listaAtual.filter((item) => item.id !== id);
+
+            await AsyncStorage.setItem(
+              TRIPS_STORAGE_KEY,
+              JSON.stringify(lista),
+            );
 
             setViagens(lista);
 
@@ -710,16 +761,24 @@ export default function Index() {
               value={selectedDate}
               mode="date"
               display="spinner"
+              locale={locale}
               onValueChange={(_event, novaData) => alterarData(novaData)}
               textColor={primaryText}
               style={styles.iosDatePicker}
             />
 
             <Pressable
-              style={[styles.datePickerButton, { backgroundColor: accent }]}
+              style={({ pressed }) => [
+                styles.datePickerButton,
+                { opacity: pressed ? 0.6 : 1 },
+              ]}
               onPress={() => setShowDatePicker(false)}
+              accessibilityRole="button"
             >
-              <Text style={styles.datePickerButtonText}>{copy.finish}</Text>
+              <Ionicons name="checkmark" size={19} color={accent} />
+              <Text style={[styles.datePickerButtonText, { color: accent }]}>
+                {copy.finish}
+              </Text>
             </Pressable>
           </View>
         )}
@@ -1105,17 +1164,18 @@ const styles = StyleSheet.create({
     height: 150,
   },
   datePickerButton: {
-    width: "100%",
-    height: 43,
-    borderRadius: 11,
+    minHeight: 40,
+    paddingHorizontal: 16,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "center",
+    gap: 7,
     marginTop: 5,
   },
   datePickerButtonText: {
-    color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   addButton: {
     height: 49,

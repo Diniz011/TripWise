@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import type { Href } from "expo-router";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -56,6 +57,11 @@ const DETAIL_TRANSLATIONS = {
     trips: "Viagens",
     editTrip: "Editar viagem",
     details: "Detalhes",
+    checklist: "Checklist da viagem",
+    checklistSubtitle: "Organize os itens essenciais para sua viagem.",
+    smartItinerary: "Roteiro inteligente",
+    smartItinerarySubtitle:
+      "Organize cada dia da sua viagem com atividades e horários.",
     planned: "Planejada",
     experience: "SUA EXPERIÊNCIA",
     myTrip: "Minha viagem",
@@ -164,6 +170,11 @@ const DETAIL_TRANSLATIONS = {
     trips: "Trips",
     editTrip: "Edit trip",
     details: "Details",
+    checklist: "Trip checklist",
+    checklistSubtitle: "Organize the essentials for your trip.",
+    smartItinerary: "Smart itinerary",
+    smartItinerarySubtitle:
+      "Organize each day of your trip with activities and schedules.",
     planned: "Planned",
     experience: "YOUR EXPERIENCE",
     myTrip: "My trip",
@@ -273,6 +284,11 @@ const DETAIL_TRANSLATIONS = {
     trips: "Viajes",
     editTrip: "Editar viaje",
     details: "Detalles",
+    checklist: "Lista del viaje",
+    checklistSubtitle: "Organiza los elementos esenciales de tu viaje.",
+    smartItinerary: "Itinerario inteligente",
+    smartItinerarySubtitle:
+      "Organiza cada día de tu viaje con actividades y horarios.",
     planned: "Planificado",
     experience: "TU EXPERIENCIA",
     myTrip: "Mi viaje",
@@ -503,6 +519,7 @@ function validarNotificacao(value: unknown): value is NotificationItem {
   const categoriasPermitidas = [
     "viagem",
     "hospedagem",
+    "passeio",
     "passeios",
     "orcamento",
   ];
@@ -523,6 +540,17 @@ function validarNotificacao(value: unknown): value is NotificationItem {
     (value.viagemId === undefined ||
       (typeof value.viagemId === "string" && value.viagemId.trim().length > 0))
   );
+}
+
+function normalizarCategoriaNotificacao(
+  notificacao: NotificationItem,
+): NotificationItem {
+  if (notificacao.category !== "passeios") return notificacao;
+
+  return {
+    ...notificacao,
+    category: "passeio",
+  };
 }
 
 function lerPasseios(valor: unknown): string[] {
@@ -979,25 +1007,58 @@ export default function Detalhes() {
   ) => {
     try {
       const preferencias = await getNotificationPreferences();
+
       const notificacoesPermitidas = notificacoes.filter(
         (item) => preferencias[item.preferencia],
       );
-      if (notificacoesPermitidas.length === 0) return;
 
+      // Lê os registros existentes antes de decidir se haverá novas notificações.
       const dadosExistentes = await AsyncStorage.getItem(
         NOTIFICATIONS_STORAGE_KEY,
       );
-      let notificacoesSalvas: NotificationItem[] = [];
 
-      if (dadosExistentes) {
-        try {
-          const parsed: unknown = JSON.parse(dadosExistentes);
-          if (Array.isArray(parsed)) {
-            notificacoesSalvas = parsed.filter(validarNotificacao);
-          }
-        } catch {
-          notificacoesSalvas = [];
+      let notificacoesSalvas: NotificationItem[] = [];
+      let precisaMigrarCategoria = false;
+
+      if (dadosExistentes !== null) {
+        const parsed: unknown = JSON.parse(dadosExistentes);
+
+        if (!Array.isArray(parsed)) {
+          throw new Error(
+            "Os dados salvos de notificações não possuem uma lista válida.",
+          );
         }
+
+        // Não descarta registros inválidos, pois isso poderia apagar dados existentes.
+        if (!parsed.every(validarNotificacao)) {
+          throw new Error(
+            "Existem notificações salvas com estrutura inválida. A gravação foi cancelada para preservar os dados.",
+          );
+        }
+
+        const notificacoesOriginais = parsed as NotificationItem[];
+
+        precisaMigrarCategoria = notificacoesOriginais.some(
+          (item) => item.category === "passeios",
+        );
+
+        notificacoesSalvas = notificacoesOriginais.map(
+          normalizarCategoriaNotificacao,
+        );
+      }
+
+      // Sem notificações novas, ainda executa a migração de categorias antigas.
+      if (notificacoesPermitidas.length === 0) {
+        if (precisaMigrarCategoria) {
+          await AsyncStorage.setItem(
+            NOTIFICATIONS_STORAGE_KEY,
+            JSON.stringify(notificacoesSalvas),
+          );
+
+          DeviceEventEmitter.emit(NOTIFICATIONS_CHANGED_EVENT);
+        }
+
+        return;
       }
 
       const novasNotificacoes: NotificationItem[] = notificacoesPermitidas.map(
@@ -1197,7 +1258,7 @@ export default function Detalhes() {
           preferencia: "passeios",
           titulo: copy.toursUpdated,
           mensagem: copy.toursUpdatedMessage(novaViagem.destino),
-          categoria: "passeios",
+          categoria: "passeio",
           icone: "ticket-outline",
           cor: "#A17BC2",
           fundo: "#A17BC218",
@@ -1608,6 +1669,90 @@ export default function Detalhes() {
               </Text>
             </View>
           </View>
+
+          {!editando && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.smartItineraryButton,
+                {
+                  backgroundColor: isDark ? "#263322" : "#EAF0E2",
+                  borderColor: isDark ? "#46583A" : "#D8E3CA",
+                  opacity: pressed ? 0.86 : 1,
+                  transform: [{ scale: pressed ? 0.99 : 1 }],
+                },
+              ]}
+              onPress={() =>
+                router.push(
+                  `/checklist?id=${encodeURIComponent(viagemId)}` as Href,
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel={copy.checklist}
+              accessibilityHint={copy.checklistSubtitle}
+            >
+              <View style={styles.smartItineraryIcon}>
+                <Ionicons name="checkbox-outline" size={23} color="#FFFFFF" />
+              </View>
+              <View style={styles.smartItineraryContent}>
+                <Text
+                  style={[styles.smartItineraryTitle, { color: primaryText }]}
+                >
+                  {copy.checklist}
+                </Text>
+                <Text
+                  style={[
+                    styles.smartItinerarySubtitle,
+                    { color: secondaryText },
+                  ]}
+                >
+                  {copy.checklistSubtitle}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={accent} />
+            </Pressable>
+          )}
+
+          {!editando && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.smartItineraryButton,
+                {
+                  backgroundColor: isDark ? "#263322" : "#EAF0E2",
+                  borderColor: isDark ? "#46583A" : "#D8E3CA",
+                  opacity: pressed ? 0.86 : 1,
+                  transform: [{ scale: pressed ? 0.99 : 1 }],
+                },
+              ]}
+              onPress={() =>
+                router.push(
+                  `/roteiro?id=${encodeURIComponent(viagemId)}` as Href,
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel={copy.smartItinerary}
+              accessibilityHint={copy.smartItinerarySubtitle}
+            >
+              <View style={styles.smartItineraryIcon}>
+                <Ionicons name="calendar-outline" size={23} color="#FFFFFF" />
+              </View>
+              <View style={styles.smartItineraryContent}>
+                <Text
+                  style={[styles.smartItineraryTitle, { color: primaryText }]}
+                >
+                  {copy.smartItinerary}
+                </Text>
+                <Text
+                  style={[
+                    styles.smartItinerarySubtitle,
+                    { color: secondaryText },
+                  ]}
+                >
+                  {copy.smartItinerarySubtitle}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={accent} />
+            </Pressable>
+          )}
 
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
@@ -2326,6 +2471,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 9,
     marginTop: 5,
+  },
+  smartItineraryButton: {
+    minHeight: 84,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 15,
+    marginBottom: 18,
+    gap: 13,
+  },
+  smartItineraryIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "#8FA255",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  smartItineraryContent: {
+    flex: 1,
+    gap: 5,
+  },
+  smartItineraryTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  smartItinerarySubtitle: {
+    fontSize: 11,
+    lineHeight: 16,
   },
   mainButtonText: {
     color: "#FFFFFF",

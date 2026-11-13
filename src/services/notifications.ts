@@ -30,7 +30,12 @@ type ViagemLembrete = {
   data: string;
 };
 
-type LembretesAgendados = Record<string, string>;
+type LembreteAgendado = {
+  identificador: string;
+  dataAgendada: number;
+};
+
+type LembretesAgendados = Record<string, LembreteAgendado>;
 
 export const NOTIFICATION_PREFERENCES_KEY =
   "@tripwise_notification_preferences";
@@ -50,6 +55,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   lembretesViagem: true,
 };
 
+const TRIPS_STORAGE_KEY = "@viagens";
+
 // Carrega as preferências salvas.
 export async function getNotificationPreferences(): Promise<NotificationPreferences> {
   try {
@@ -58,13 +65,13 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
     );
 
     if (!storedPreferences) {
-      return DEFAULT_NOTIFICATION_PREFERENCES;
+      return { ...DEFAULT_NOTIFICATION_PREFERENCES };
     }
 
     const parsed: unknown = JSON.parse(storedPreferences);
 
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return DEFAULT_NOTIFICATION_PREFERENCES;
+      return { ...DEFAULT_NOTIFICATION_PREFERENCES };
     }
 
     const preferences = parsed as Partial<NotificationPreferences>;
@@ -103,7 +110,8 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
     };
   } catch (error) {
     console.error("Erro ao carregar preferências de notificações:", error);
-    return DEFAULT_NOTIFICATION_PREFERENCES;
+
+    return { ...DEFAULT_NOTIFICATION_PREFERENCES };
   }
 }
 
@@ -133,6 +141,7 @@ export async function isNotificationEnabled(
   preference: keyof NotificationPreferences,
 ): Promise<boolean> {
   const preferences = await getNotificationPreferences();
+
   return preferences[preference];
 }
 
@@ -174,37 +183,79 @@ function interpretarData(data: string): Date | null {
   return resultado;
 }
 
-// Carrega os identificadores dos lembretes agendados.
-async function carregarLembretesAgendados(): Promise<LembretesAgendados> {
-  try {
-    const dados = await AsyncStorage.getItem(LEMBRETES_AGENDADOS_KEY);
-
-    if (!dados) {
-      return {};
-    }
-
-    const parsed: unknown = JSON.parse(dados);
-
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    const resultado: LembretesAgendados = {};
-
-    for (const [id, identificador] of Object.entries(parsed)) {
-      if (typeof identificador === "string") {
-        resultado[id] = identificador;
-      }
-    }
-
-    return resultado;
-  } catch (error) {
-    console.error("Erro ao carregar lembretes agendados:", error);
-    return {};
+// Valida os dados básicos de uma viagem.
+function isViagemLembrete(valor: unknown): valor is ViagemLembrete {
+  if (!valor || typeof valor !== "object" || Array.isArray(valor)) {
+    return false;
   }
+
+  const viagem = valor as Record<string, unknown>;
+
+  return (
+    typeof viagem.id === "string" &&
+    viagem.id.trim().length > 0 &&
+    typeof viagem.nome === "string" &&
+    viagem.nome.trim().length > 0 &&
+    typeof viagem.destino === "string" &&
+    viagem.destino.trim().length > 0 &&
+    typeof viagem.data === "string" &&
+    viagem.data.trim().length > 0
+  );
 }
 
-// Salva os identificadores dos lembretes.
+// Carrega os identificadores dos lembretes agendados.
+// Também mantém compatibilidade com o formato antigo, que armazenava apenas strings.
+async function carregarLembretesAgendados(): Promise<LembretesAgendados> {
+  const dados = await AsyncStorage.getItem(LEMBRETES_AGENDADOS_KEY);
+
+  if (!dados) {
+    return {};
+  }
+
+  const parsed: unknown = JSON.parse(dados);
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Os dados dos lembretes agendados são inválidos.");
+  }
+
+  const resultado: LembretesAgendados = {};
+
+  for (const [id, valor] of Object.entries(parsed)) {
+    // Compatibilidade com identificadores da versão anterior.
+    if (typeof valor === "string" && valor.trim().length > 0) {
+      resultado[id] = {
+        identificador: valor,
+        dataAgendada: 0,
+      };
+
+      continue;
+    }
+
+    if (
+      valor &&
+      typeof valor === "object" &&
+      "identificador" in valor &&
+      "dataAgendada" in valor &&
+      typeof valor.identificador === "string" &&
+      valor.identificador.trim().length > 0 &&
+      typeof valor.dataAgendada === "number" &&
+      Number.isFinite(valor.dataAgendada)
+    ) {
+      resultado[id] = {
+        identificador: valor.identificador,
+        dataAgendada: valor.dataAgendada,
+      };
+
+      continue;
+    }
+
+    throw new Error(`Registro de lembrete inválido para a viagem ${id}.`);
+  }
+
+  return resultado;
+}
+
+// Salva os identificadores e as datas dos lembretes.
 async function salvarLembretesAgendados(
   lembretes: LembretesAgendados,
 ): Promise<void> {
@@ -268,34 +319,51 @@ async function cancelarNotificacaoAgendada(
   }
 }
 
+// Cancela o lembrete de uma viagem e atualiza o armazenamento.
+async function removerLembreteRegistrado(
+  viagemId: string,
+  lembretes: LembretesAgendados,
+): Promise<boolean> {
+  const lembreteAnterior = lembretes[viagemId];
+
+  if (!lembreteAnterior) {
+    return true;
+  }
+
+  const cancelado = await cancelarNotificacaoAgendada(
+    lembreteAnterior.identificador,
+  );
+
+  if (!cancelado) {
+    return false;
+  }
+
+  delete lembretes[viagemId];
+
+  await salvarLembretesAgendados(lembretes);
+
+  return true;
+}
+
 // Agenda um lembrete para as 9h do dia anterior à viagem.
 export async function agendarLembreteViagem(
   viagem: ViagemLembrete,
 ): Promise<void> {
-  const lembretes = await carregarLembretesAgendados();
+  if (!isViagemLembrete(viagem)) {
+    console.warn("Dados inválidos para agendar lembrete:", viagem);
 
-  // Remove um lembrete anterior da mesma viagem.
-  const lembreteAnterior = lembretes[viagem.id];
-
-  if (lembreteAnterior) {
-    const cancelado = await cancelarNotificacaoAgendada(lembreteAnterior);
-
-    if (!cancelado) {
-      console.warn(
-        "Novo lembrete não foi criado porque o anterior não pôde ser cancelado.",
-        viagem.id,
-      );
-
-      return;
-    }
-
-    delete lembretes[viagem.id];
-    await salvarLembretesAgendados(lembretes);
+    return;
   }
+
+  const lembretes = await carregarLembretesAgendados();
+  const lembreteAnterior = lembretes[viagem.id];
 
   const preferencias = await getNotificationPreferences();
 
+  // Se os lembretes estiverem desativados, remove o agendamento anterior.
   if (!preferencias.lembretesViagem) {
+    await removerLembreteRegistrado(viagem.id, lembretes);
+
     return;
   }
 
@@ -306,6 +374,8 @@ export async function agendarLembreteViagem(
       `Data inválida para agendar lembrete da viagem ${viagem.id}:`,
       viagem.data,
     );
+
+    await removerLembreteRegistrado(viagem.id, lembretes);
 
     return;
   }
@@ -320,55 +390,122 @@ export async function agendarLembreteViagem(
     0,
   );
 
+  const timestampLembrete = dataLembrete.getTime();
+
   // Não agenda notificações cuja data já passou.
-  if (dataLembrete.getTime() <= Date.now()) {
+  if (timestampLembrete <= Date.now()) {
     console.log(
       "Lembrete não agendado porque o horário já passou:",
       viagem.nome,
     );
 
+    await removerLembreteRegistrado(viagem.id, lembretes);
+
     return;
   }
 
+  // Evita recriar um lembrete quando a data não foi alterada.
+  if (lembreteAnterior && lembreteAnterior.dataAgendada === timestampLembrete) {
+    const agendamentos =
+      await Notifications.getAllScheduledNotificationsAsync();
+
+    const lembreteExiste = agendamentos.some(
+      (item) => item.identifier === lembreteAnterior.identificador,
+    );
+
+    if (lembreteExiste) {
+      return;
+    }
+
+    // O registro existe, mas o agendamento não está mais no sistema.
+    delete lembretes[viagem.id];
+
+    await salvarLembretesAgendados(lembretes);
+  }
+
+  // Verifica a permissão antes de remover um lembrete antigo.
   const permissaoConcedida = await obterPermissaoNotificacoes();
 
   if (!permissaoConcedida) {
     console.warn("Permissão para notificações não concedida.");
+
     return;
   }
 
   await configurarCanalNotificacoes();
 
-  const identificador = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Sua viagem está chegando! ✈️",
-      body: `Amanhã é o dia da sua viagem para ${viagem.destino}. Prepare tudo para essa experiência!`,
-      sound: true,
-      ...(Platform.OS === "android" ? { channelId: "default" } : {}),
-      data: {
-        viagemId: viagem.id,
-        tipo: "lembreteViagem",
+  // Se a data mudou, cancela o agendamento anterior antes de criar outro.
+  if (lembreteAnterior && lembretes[viagem.id]) {
+    const cancelado = await removerLembreteRegistrado(viagem.id, lembretes);
+
+    if (!cancelado) {
+      console.warn(
+        "Novo lembrete não foi criado porque o anterior não pôde ser cancelado.",
+        viagem.id,
+      );
+
+      return;
+    }
+  }
+
+  let identificador: string | null = null;
+
+  try {
+    identificador = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Sua viagem está chegando! ✈️",
+        body: `Amanhã é o dia da sua viagem para ${viagem.destino}. Prepare tudo para essa experiência!`,
+        sound: true,
+        ...(Platform.OS === "android" ? { channelId: "default" } : {}),
+        data: {
+          viagemId: viagem.id,
+          tipo: "lembreteViagem",
+        },
       },
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: dataLembrete,
-    },
-  });
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: dataLembrete,
+      },
+    });
 
-  lembretes[viagem.id] = identificador;
+    // Persiste o identificador somente após o agendamento ser criado.
+    lembretes[viagem.id] = {
+      identificador,
+      dataAgendada: timestampLembrete,
+    };
 
-  await salvarLembretesAgendados(lembretes);
+    await salvarLembretesAgendados(lembretes);
 
-  console.log(
-    `Lembrete agendado para ${viagem.nome}:`,
-    dataLembrete.toLocaleString("pt-BR"),
-  );
+    console.log(
+      `Lembrete agendado para ${viagem.nome}:`,
+      dataLembrete.toLocaleString("pt-BR"),
+    );
+  } catch (error) {
+    console.error(
+      `Erro ao criar ou salvar lembrete da viagem ${viagem.id}:`,
+      error,
+    );
+
+    // Se o agendamento foi criado, tenta cancelá-lo caso não consiga persistir.
+    if (identificador) {
+      const cancelado = await cancelarNotificacaoAgendada(identificador);
+
+      if (!cancelado) {
+        console.error(
+          "O novo lembrete foi criado, mas não pôde ser cancelado após a falha de armazenamento:",
+          identificador,
+        );
+      }
+    }
+
+    throw error;
+  }
 }
 
 // Cancela o lembrete de uma viagem específica.
 export async function cancelarLembreteViagem(viagemId: string): Promise<void> {
   const lembretes = await carregarLembretesAgendados();
+
   const identificador = lembretes[viagemId];
 
   if (!identificador) {
@@ -377,7 +514,9 @@ export async function cancelarLembreteViagem(viagemId: string): Promise<void> {
     return;
   }
 
-  const cancelado = await cancelarNotificacaoAgendada(identificador);
+  const cancelado = await cancelarNotificacaoAgendada(
+    identificador.identificador,
+  );
 
   if (!cancelado) {
     console.warn(
@@ -398,43 +537,20 @@ export async function cancelarLembreteViagem(viagemId: string): Promise<void> {
 // Sincroniza os lembretes de todas as viagens salvas.
 export async function sincronizarLembretesViagem(): Promise<void> {
   const preferencias = await getNotificationPreferences();
-  const dados = await AsyncStorage.getItem("@viagens");
 
-  let viagens: ViagemLembrete[] = [];
+  const lembretes = await carregarLembretesAgendados();
 
-  try {
-    const parsed: unknown = dados ? JSON.parse(dados) : [];
-
-    if (!Array.isArray(parsed)) {
-      console.warn("Os dados de viagens salvos não são uma lista válida.");
-      return;
-    }
-
-    viagens = parsed.filter(
-      (item): item is ViagemLembrete =>
-        item !== null &&
-        typeof item === "object" &&
-        typeof item.id === "string" &&
-        typeof item.nome === "string" &&
-        typeof item.destino === "string" &&
-        typeof item.data === "string",
-    );
-  } catch (error) {
-    console.error("Erro ao interpretar viagens salvas:", error);
-    return;
-  }
-
-  // Se os lembretes estiverem desativados, cancela todos.
+  // Se os lembretes estiverem desativados, cancela todos os agendamentos.
   if (!preferencias.lembretesViagem) {
-    const lembretes = await carregarLembretesAgendados();
-
     const lembretesRestantes: LembretesAgendados = {};
 
-    for (const [viagemId, identificador] of Object.entries(lembretes)) {
-      const cancelado = await cancelarNotificacaoAgendada(identificador);
+    for (const [viagemId, lembrete] of Object.entries(lembretes)) {
+      const cancelado = await cancelarNotificacaoAgendada(
+        lembrete.identificador,
+      );
 
       if (!cancelado) {
-        lembretesRestantes[viagemId] = identificador;
+        lembretesRestantes[viagemId] = lembrete;
       }
     }
 
@@ -447,22 +563,61 @@ export async function sincronizarLembretesViagem(): Promise<void> {
     return;
   }
 
-  // Agenda os lembretes das viagens existentes.
+  // Lê os dados sem interpretar falhas como uma lista vazia.
+  const dados = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
+
+  const parsed: unknown = dados ? JSON.parse(dados) : [];
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      "Os dados de viagens salvos não são uma lista válida. Sincronização interrompida.",
+    );
+  }
+
+  // Se houver registros inválidos, interrompe a sincronização.
+  // Isso evita cancelar lembretes de viagens que não puderam ser identificadas.
+  if (!parsed.every(isViagemLembrete)) {
+    throw new Error(
+      "Foram encontrados dados de viagens inválidos. Sincronização interrompida para preservar os lembretes existentes.",
+    );
+  }
+
+  const viagens = parsed;
+
+  const idsAtuais = new Set<string>();
+
+  for (const viagem of viagens) {
+    if (idsAtuais.has(viagem.id)) {
+      throw new Error(
+        `Identificador duplicado encontrado na viagem: ${viagem.id}`,
+      );
+    }
+
+    idsAtuais.add(viagem.id);
+  }
+
+  // Agenda ou atualiza apenas os lembretes necessários.
   for (const viagem of viagens) {
     try {
       await agendarLembreteViagem(viagem);
     } catch (error) {
-      console.error(`Erro ao agendar lembrete da viagem ${viagem.id}:`, error);
+      console.error(
+        `Erro ao sincronizar lembrete da viagem ${viagem.id}:`,
+        error,
+      );
     }
   }
 
   // Remove lembretes de viagens que não existem mais.
-  const idsAtuais = new Set(viagens.map((viagem) => viagem.id));
-  const lembretes = await carregarLembretesAgendados();
+  const lembretesAtualizados = await carregarLembretesAgendados();
 
-  for (const viagemId of Object.keys(lembretes)) {
+  for (const viagemId of Object.keys(lembretesAtualizados)) {
     if (!idsAtuais.has(viagemId)) {
-      await cancelarLembreteViagem(viagemId);
+      try {
+        await cancelarLembreteViagem(viagemId);
+      } catch (error) {
+        console.error(`Erro ao remover lembrete da viagem ${viagemId}:`, error);
+      }
     }
   }
 
