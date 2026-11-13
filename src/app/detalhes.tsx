@@ -487,9 +487,41 @@ function validarViagem(value: unknown): value is Viagem {
     typeof value.id === "string" &&
     value.id.trim().length > 0 &&
     typeof value.nome === "string" &&
+    value.nome.trim().length > 0 &&
     typeof value.destino === "string" &&
+    value.destino.trim().length > 0 &&
     typeof value.transporte === "string" &&
-    typeof value.data === "string"
+    value.transporte.trim().length > 0 &&
+    typeof value.data === "string" &&
+    value.data.trim().length > 0
+  );
+}
+
+function validarNotificacao(value: unknown): value is NotificationItem {
+  if (!isRecord(value)) return false;
+
+  const categoriasPermitidas = [
+    "viagem",
+    "hospedagem",
+    "passeios",
+    "orcamento",
+  ];
+
+  return (
+    typeof value.id === "string" &&
+    value.id.trim().length > 0 &&
+    typeof value.title === "string" &&
+    typeof value.message === "string" &&
+    typeof value.time === "string" &&
+    categoriasPermitidas.includes(value.category as string) &&
+    typeof value.icon === "string" &&
+    value.icon in Ionicons.glyphMap &&
+    typeof value.color === "string" &&
+    typeof value.background === "string" &&
+    typeof value.read === "boolean" &&
+    (value.section === "Hoje" || value.section === "Anteriores") &&
+    (value.viagemId === undefined ||
+      (typeof value.viagemId === "string" && value.viagemId.trim().length > 0))
   );
 }
 
@@ -543,7 +575,9 @@ function formatarData(data: Date) {
 }
 
 function converterData(valor: string, anoReferencia?: number): Date | null {
-  const correspondencia = valor.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+  const correspondencia = valor.match(
+    /^\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s*$/,
+  );
   if (!correspondencia) return null;
 
   const dia = Number(correspondencia[1]);
@@ -877,10 +911,13 @@ export default function Detalhes() {
     0,
   );
   const saldoRestante = converterValor(orcamentoTotal) - totalGastos;
-  const percentualGasto =
+
+  const percentualGastoReal =
     converterValor(orcamentoTotal) > 0
-      ? Math.min((totalGastos / converterValor(orcamentoTotal)) * 100, 100)
+      ? (totalGastos / converterValor(orcamentoTotal)) * 100
       : 0;
+
+  const percentualGasto = Math.min(percentualGastoReal, 100);
 
   const adicionarPasseio = () => {
     if (!novoPasseio.trim()) return;
@@ -955,8 +992,9 @@ export default function Detalhes() {
       if (dadosExistentes) {
         try {
           const parsed: unknown = JSON.parse(dadosExistentes);
-          if (Array.isArray(parsed))
-            notificacoesSalvas = parsed as NotificationItem[];
+          if (Array.isArray(parsed)) {
+            notificacoesSalvas = parsed.filter(validarNotificacao);
+          }
         } catch {
           notificacoesSalvas = [];
         }
@@ -1095,6 +1133,9 @@ export default function Detalhes() {
         0,
       );
 
+      const mudouListaGastos =
+        JSON.stringify(gastosAnteriores) !== JSON.stringify(gastos);
+
       const mudouOrcamento =
         orcamentoAnterior !== orcamentoNovo ||
         totalGastosAnterior !== totalGastosNovo;
@@ -1103,7 +1144,8 @@ export default function Detalhes() {
         mudouInformacaoPrincipal ||
         mudouHospedagem ||
         mudouPasseios ||
-        mudouOrcamento;
+        mudouOrcamento ||
+        mudouListaGastos;
 
       const percentualAnterior =
         orcamentoAnterior > 0
@@ -1790,7 +1832,7 @@ export default function Detalhes() {
                 />
               </View>
               <Text style={[styles.budgetHint, { color: secondaryText }]}>
-                {percentualGasto.toFixed(0)}% {copy.budgetUsed}
+                {percentualGastoReal.toFixed(0)}% {copy.budgetUsed}
               </Text>
             </View>
 
@@ -1821,9 +1863,7 @@ export default function Detalhes() {
                   {copy.totalBudget}
                 </Text>
                 <Text style={[styles.budgetRowValue, { color: primaryText }]}>
-                  {formatarMoeda(
-                    convertFromBRL(0) + converterValor(orcamentoTotal),
-                  )}
+                  {formatarMoeda(converterValor(orcamentoTotal))}
                 </Text>
               </View>
             )}

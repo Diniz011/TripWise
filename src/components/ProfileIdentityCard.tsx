@@ -65,6 +65,11 @@ type IdentityTranslations = {
   characters: string;
   saveChanges: string;
   defaultName: string;
+  profilePhotoAccessibility: string;
+  editProfileAccessibility: string;
+  closeModalAccessibility: string;
+  nameInputAccessibility: string;
+  saveChangesAccessibility: string;
 };
 
 const IDENTITY_TRANSLATIONS: Record<
@@ -101,6 +106,11 @@ const IDENTITY_TRANSLATIONS: Record<
     characters: "caracteres",
     saveChanges: "Salvar alterações",
     defaultName: "Viajante",
+    profilePhotoAccessibility: "Alterar ou remover foto de perfil",
+    editProfileAccessibility: "Editar nome do perfil",
+    closeModalAccessibility: "Fechar janela de edição",
+    nameInputAccessibility: "Campo para digitar o nome do viajante",
+    saveChangesAccessibility: "Salvar alterações do perfil",
   },
 
   en: {
@@ -132,6 +142,11 @@ const IDENTITY_TRANSLATIONS: Record<
     characters: "characters",
     saveChanges: "Save changes",
     defaultName: "Traveler",
+    profilePhotoAccessibility: "Change or remove profile photo",
+    editProfileAccessibility: "Edit profile name",
+    closeModalAccessibility: "Close editing window",
+    nameInputAccessibility: "Field to enter the traveler's name",
+    saveChangesAccessibility: "Save profile changes",
   },
 
   es: {
@@ -163,6 +178,11 @@ const IDENTITY_TRANSLATIONS: Record<
     characters: "caracteres",
     saveChanges: "Guardar cambios",
     defaultName: "Viajero",
+    profilePhotoAccessibility: "Cambiar o eliminar foto de perfil",
+    editProfileAccessibility: "Editar nombre del perfil",
+    closeModalAccessibility: "Cerrar ventana de edición",
+    nameInputAccessibility: "Campo para escribir el nombre del viajero",
+    saveChangesAccessibility: "Guardar cambios del perfil",
   },
 };
 
@@ -243,6 +263,9 @@ export default function ProfileIdentityCard({ colors }: Props) {
   }
 
   async function handleChoosePhoto() {
+    let newPhotoUri: string | null = null;
+    let profileSaved = false;
+
     try {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -265,21 +288,30 @@ export default function ProfileIdentityCard({ colors }: Props) {
 
       setSaving(true);
 
-      const newPhotoUri = await saveProfilePhoto(
-        result.assets[0].uri,
-        profile.photoUri,
-      );
+      const previousPhotoUri = profile.photoUri;
 
-      const updatedProfile = {
+      newPhotoUri = await saveProfilePhoto(result.assets[0].uri);
+
+      const updatedProfile: UserProfile = {
         ...profile,
         photoUri: newPhotoUri,
       };
 
       await saveUserProfile(updatedProfile);
+      profileSaved = true;
 
       setProfile(updatedProfile);
+
+      if (previousPhotoUri && previousPhotoUri !== newPhotoUri) {
+        await removeProfilePhoto(previousPhotoUri);
+      }
     } catch (error) {
       console.error("Erro ao selecionar foto:", error);
+
+      if (newPhotoUri && !profileSaved) {
+        await removeProfilePhoto(newPhotoUri);
+      }
+
       Alert.alert(copy.error, copy.photoError);
     } finally {
       setSaving(false);
@@ -305,7 +337,7 @@ export default function ProfileIdentityCard({ colors }: Props) {
           try {
             const previousPhoto = profile.photoUri;
 
-            const updatedProfile = {
+            const updatedProfile: UserProfile = {
               ...profile,
               photoUri: null,
             };
@@ -364,11 +396,15 @@ export default function ProfileIdentityCard({ colors }: Props) {
           style={styles.avatarContainer}
           onPress={handlePhotoOptions}
           disabled={loading || saving}
+          accessibilityRole="button"
+          accessibilityLabel={copy.profilePhotoAccessibility}
+          accessibilityState={{ disabled: loading || saving }}
         >
           {profile.photoUri ? (
             <Image
               source={{ uri: profile.photoUri }}
               style={styles.avatarImage}
+              accessibilityLabel={copy.profilePhoto}
             />
           ) : (
             <View style={styles.avatar}>
@@ -398,6 +434,9 @@ export default function ProfileIdentityCard({ colors }: Props) {
                 setEditModalVisible(true);
               }}
               disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel={copy.editProfileAccessibility}
+              accessibilityState={{ disabled: saving }}
             >
               <Ionicons name="create-outline" size={15} color={colors.green} />
 
@@ -453,6 +492,9 @@ export default function ProfileIdentityCard({ colors }: Props) {
                 onPress={() => setEditModalVisible(false)}
                 disabled={saving}
                 style={styles.closeButton}
+                accessibilityRole="button"
+                accessibilityLabel={copy.closeModalAccessibility}
+                accessibilityState={{ disabled: saving }}
               >
                 <Ionicons name="close" size={23} color={colors.secondary} />
               </Pressable>
@@ -481,6 +523,7 @@ export default function ProfileIdentityCard({ colors }: Props) {
               }}
               editable={!saving}
               selectionColor={colors.green}
+              accessibilityLabel={copy.nameInputAccessibility}
             />
 
             <Text style={styles.characterCount}>
@@ -493,6 +536,9 @@ export default function ProfileIdentityCard({ colors }: Props) {
                 void handleSaveName();
               }}
               disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel={copy.saveChangesAccessibility}
+              accessibilityState={{ disabled: saving }}
             >
               {saving ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />

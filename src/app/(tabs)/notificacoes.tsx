@@ -56,6 +56,10 @@ const NOTIFICATION_TRANSLATIONS = {
     summaryDescription: "Acompanhe atualizações importantes das suas viagens.",
     all: "Todas",
     unread: "Não lidas",
+    allAccessibility: "Mostrar todas as notificações",
+    unreadAccessibility: "Mostrar somente notificações não lidas",
+    openNotificationAccessibility: (title: string) =>
+      `Abrir notificação: ${title}`,
     markAllAccessibility: "Marcar todas as notificações como lidas",
     deleteAllAccessibility: "Excluir todas as notificações",
     markAll: "Ler todas",
@@ -91,6 +95,10 @@ const NOTIFICATION_TRANSLATIONS = {
     summaryDescription: "Keep track of important updates about your trips.",
     all: "All",
     unread: "Unread",
+    allAccessibility: "Show all notifications",
+    unreadAccessibility: "Show only unread notifications",
+    openNotificationAccessibility: (title: string) =>
+      `Open notification: ${title}`,
     markAllAccessibility: "Mark all notifications as read",
     deleteAllAccessibility: "Delete all notifications",
     markAll: "Mark all as read",
@@ -127,6 +135,10 @@ const NOTIFICATION_TRANSLATIONS = {
     summaryDescription: "Sigue las actualizaciones importantes de tus viajes.",
     all: "Todas",
     unread: "No leídas",
+    allAccessibility: "Mostrar todas las notificaciones",
+    unreadAccessibility: "Mostrar solo las notificaciones no leídas",
+    openNotificationAccessibility: (title: string) =>
+      `Abrir notificación: ${title}`,
     markAllAccessibility: "Marcar todas las notificaciones como leídas",
     deleteAllAccessibility: "Eliminar todas las notificaciones",
     markAll: "Marcar todas como leídas",
@@ -261,16 +273,80 @@ const NOTIFICATION_CONTENT_TRANSLATIONS = {
 };
 
 const SAMPLE_NOTIFICATIONS = [
-  { id: "1", title: "Sua viagem está chegando!" },
-  { id: "2", title: "Confira sua hospedagem" },
-  { id: "3", title: "Atenção ao orçamento" },
-  { id: "4", title: "Passeio adicionado" },
-  { id: "5", title: "Viagem criada com sucesso" },
+  {
+    id: "1",
+    titles: [
+      "Sua viagem está chegando!",
+      "Your trip is coming up!",
+      "¡Tu viaje se acerca!",
+    ],
+  },
+  {
+    id: "2",
+    titles: [
+      "Confira sua hospedagem",
+      "Check your accommodation",
+      "Consulta tu alojamiento",
+    ],
+  },
+  {
+    id: "3",
+    titles: ["Atenção ao orçamento", "Budget alert", "Alerta de presupuesto"],
+  },
+  {
+    id: "4",
+    titles: ["Passeio adicionado", "Activity added", "Actividad añadida"],
+  },
+  {
+    id: "5",
+    titles: [
+      "Viagem criada com sucesso",
+      "Trip created successfully",
+      "Viaje creado correctamente",
+    ],
+  },
 ];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNotificationItem(value: unknown): value is NotificationItem {
+  if (!isRecord(value)) return false;
+
+  const validCategories = ["viagem", "hospedagem", "passeio", "orcamento"];
+
+  const validSections = ["Hoje", "Anteriores"];
+
+  const iconIsValid =
+    typeof value.icon === "string" &&
+    Object.prototype.hasOwnProperty.call(Ionicons.glyphMap, value.icon);
+
+  const viagemIdIsValid =
+    value.viagemId === undefined || typeof value.viagemId === "string";
+
+  return (
+    typeof value.id === "string" &&
+    value.id.trim().length > 0 &&
+    typeof value.title === "string" &&
+    value.title.trim().length > 0 &&
+    typeof value.message === "string" &&
+    typeof value.time === "string" &&
+    typeof value.category === "string" &&
+    validCategories.includes(value.category) &&
+    iconIsValid &&
+    typeof value.color === "string" &&
+    typeof value.background === "string" &&
+    typeof value.read === "boolean" &&
+    typeof value.section === "string" &&
+    validSections.includes(value.section) &&
+    viagemIdIsValid
+  );
+}
 
 function isSampleNotification(item: NotificationItem) {
   return SAMPLE_NOTIFICATIONS.some(
-    (sample) => sample.id === item.id && sample.title === item.title,
+    (sample) => sample.id === item.id && sample.titles.includes(item.title),
   );
 }
 
@@ -293,7 +369,6 @@ function traduzirNotificacao(
   const tituloNormalizado = normalizar(titulo);
   const horarioNormalizado = normalizar(item.time);
 
-  // Traduz o horário independentemente do tipo de notificação.
   const itemLocalizado: NotificationItem = {
     ...item,
     time:
@@ -350,7 +425,6 @@ function traduzirNotificacao(
   };
 
   const destinoCriacao = extrairDestino(mensagem, expressoesDestino.criacao);
-
   const destinoExclusao = extrairDestino(mensagem, expressoesDestino.exclusao);
 
   const destinoAtualizacao = extrairDestino(
@@ -461,7 +535,6 @@ function traduzirNotificacao(
   }
 
   const percentualDaMensagem = mensagem.match(/(\d+(?:[.,]\d+)?)\s*%/);
-
   const percentual = percentualDaMensagem?.[1];
 
   const notificacaoOrcamento =
@@ -650,6 +723,9 @@ function NotificationCard({
         ]}
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={copy.openNotificationAccessibility(item.title)}
+          accessibilityState={{ disabled: false }}
           onPress={() => {
             if (Date.now() - lastSwipeAt.current < 400) {
               return;
@@ -739,12 +815,7 @@ export default function Notificacoes() {
 
             if (Array.isArray(parsed)) {
               const validNotifications = parsed.filter(
-                (item): item is NotificationItem =>
-                  item !== null &&
-                  typeof item === "object" &&
-                  typeof item.id === "string" &&
-                  typeof item.title === "string" &&
-                  typeof item.read === "boolean",
+                (item): item is NotificationItem => isNotificationItem(item),
               );
 
               const cleanedNotifications = validNotifications.filter(
@@ -755,7 +826,7 @@ export default function Notificacoes() {
                 setNotifications(cleanedNotifications);
               }
 
-              if (cleanedNotifications.length !== validNotifications.length) {
+              if (cleanedNotifications.length !== parsed.length) {
                 await AsyncStorage.setItem(
                   STORAGE_KEY,
                   JSON.stringify(cleanedNotifications),
@@ -792,7 +863,7 @@ export default function Notificacoes() {
         }
       }
 
-      loadNotifications();
+      void loadNotifications();
 
       return () => {
         isActive = false;
@@ -890,7 +961,7 @@ export default function Notificacoes() {
       }
 
       const viagemExiste = viagens.some(
-        (viagem: { id?: string }) => viagem?.id === item.viagemId,
+        (viagem: unknown) => isRecord(viagem) && viagem.id === item.viagemId,
       );
 
       if (!viagemExiste) {
@@ -974,10 +1045,17 @@ export default function Notificacoes() {
             {(["Todas", "Não lidas"] as const).map((item) => {
               const selected = filter === item;
               const label = item === "Todas" ? copy.all : copy.unread;
+              const accessibilityLabel =
+                item === "Todas"
+                  ? copy.allAccessibility
+                  : copy.unreadAccessibility;
 
               return (
                 <Pressable
                   key={item}
+                  accessibilityRole="button"
+                  accessibilityLabel={accessibilityLabel}
+                  accessibilityState={{ selected }}
                   onPress={() => setFilter(item)}
                   style={[
                     styles.filterButton,

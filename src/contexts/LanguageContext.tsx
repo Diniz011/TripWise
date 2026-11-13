@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -93,24 +94,34 @@ type LanguageProviderProps = {
   children: ReactNode;
 };
 
+function isLanguageCode(value: unknown): value is LanguageCode {
+  return value === "pt-BR" || value === "en" || value === "es";
+}
+
 export function LanguageProvider({ children }: LanguageProviderProps) {
   const [language, setLanguageState] = useState<LanguageCode>("pt-BR");
   const [loadingLanguage, setLoadingLanguage] = useState(true);
 
+  const languageChangeVersion = useRef(0);
+
   // Carrega o idioma salvo no dispositivo.
   useEffect(() => {
     let mounted = true;
+    const initialVersion = languageChangeVersion.current;
 
     async function loadLanguage() {
       try {
-        const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+        const savedLanguage: unknown =
+          await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
 
-        const isValidLanguage = LANGUAGE_OPTIONS.some(
-          (option) => option.value === savedLanguage,
-        );
+        const hasValidLanguage = isLanguageCode(savedLanguage);
 
-        if (mounted && isValidLanguage) {
-          setLanguageState(savedLanguage as LanguageCode);
+        if (
+          mounted &&
+          languageChangeVersion.current === initialVersion &&
+          hasValidLanguage
+        ) {
+          setLanguageState(savedLanguage);
         }
       } catch (error) {
         console.error("Erro ao carregar idioma:", error);
@@ -131,19 +142,25 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   // Altera e persiste o idioma selecionado.
   const setLanguage = useCallback(
     async (newLanguage: LanguageCode) => {
-      if (newLanguage === language) {
+      if (!isLanguageCode(newLanguage)) {
+        throw new Error("Idioma selecionado inválido.");
+      }
+
+      if (newLanguage === language && !loadingLanguage) {
         return;
       }
 
       try {
         await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage);
+
+        languageChangeVersion.current += 1;
         setLanguageState(newLanguage);
       } catch (error) {
         console.error("Erro ao salvar idioma:", error);
         throw error;
       }
     },
-    [language],
+    [language, loadingLanguage],
   );
 
   // Retorna a tradução correspondente ao idioma atual.

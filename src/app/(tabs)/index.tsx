@@ -81,6 +81,7 @@ type HomeTranslations = {
   loadTripsError: string;
   saveTripError: string;
   deleteTrip: string;
+  deleteTripAccessibility: string;
   deleteTripConfirm: string;
   cancel: string;
   delete: string;
@@ -126,6 +127,7 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     loadTripsError: "Não foi possível carregar suas viagens.",
     saveTripError: "Não foi possível salvar sua viagem.",
     deleteTrip: "Excluir viagem",
+    deleteTripAccessibility: "Excluir viagem {name}",
     deleteTripConfirm: "Tem certeza de que deseja excluir esta viagem?",
     cancel: "Cancelar",
     delete: "Excluir",
@@ -171,6 +173,7 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     loadTripsError: "Could not load your trips.",
     saveTripError: "Could not save your trip.",
     deleteTrip: "Delete trip",
+    deleteTripAccessibility: "Delete trip {name}",
     deleteTripConfirm: "Are you sure you want to delete this trip?",
     cancel: "Cancel",
     delete: "Delete",
@@ -216,6 +219,7 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     loadTripsError: "No se pudieron cargar tus viajes.",
     saveTripError: "No se pudo guardar tu viaje.",
     deleteTrip: "Eliminar viaje",
+    deleteTripAccessibility: "Eliminar viaje {name}",
     deleteTripConfirm: "¿Estás seguro de que deseas eliminar este viaje?",
     cancel: "Cancelar",
     delete: "Eliminar",
@@ -918,7 +922,10 @@ export default function Index() {
                     hitSlop={10}
                     style={styles.deleteButton}
                     accessibilityRole="button"
-                    accessibilityLabel={copy.deleteTrip}
+                    accessibilityLabel={copy.deleteTripAccessibility.replace(
+                      "{name}",
+                      item.nome,
+                    )}
                   >
                     <Ionicons name="trash-outline" size={19} color="#D96B6B" />
                   </Pressable>
