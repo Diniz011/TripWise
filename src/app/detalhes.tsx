@@ -37,6 +37,8 @@ const DETAIL_TRANSLATIONS = {
     invalidDate: "Data inválida",
     checkoutBeforeCheckin:
       "O check-out não pode ser anterior à data de check-in.",
+    endDateBeforeStart:
+      "A data de término não pode ser anterior à data de início da viagem.",
     attention: "Atenção",
     expenseValidation: "Informe o nome e um valor válido para o gasto.",
     quoteUnavailable: "Cotação indisponível",
@@ -62,6 +64,12 @@ const DETAIL_TRANSLATIONS = {
     smartItinerary: "Roteiro inteligente",
     smartItinerarySubtitle:
       "Organize cada dia da sua viagem com atividades e horários.",
+    smartWeather: "Clima inteligente",
+    smartWeatherSubtitle:
+      "Consulte a previsão do tempo e prepare-se para cada dia da viagem.",
+    travelWallet: "Carteira de viagem",
+    travelWalletSubtitle:
+      "Tenha documentos, passagens e reservas sempre organizados.",
     planned: "Planejada",
     experience: "SUA EXPERIÊNCIA",
     myTrip: "Minha viagem",
@@ -74,7 +82,8 @@ const DETAIL_TRANSLATIONS = {
     destinationPlaceholder: "Ex: Rio de Janeiro",
     transport: "Transporte",
     transportPlaceholder: "Ex: Avião",
-    date: "Data",
+    date: "Data de início",
+    endDate: "Data de término",
     tripDatePlaceholder: "Selecione a data da viagem",
     name: "Nome",
     notInformed: "Não informado",
@@ -113,6 +122,7 @@ const DETAIL_TRANSLATIONS = {
     selectCheckout: "Selecione o check-out",
     chooseCheckin: "Escolha a data de entrada no hotel.",
     chooseTripStart: "Escolha quando sua viagem começa.",
+    chooseTripEnd: "Escolha quando sua viagem termina.",
     checkin: "Check-in",
     notSelected: "Não selecionado",
     cancel: "Cancelar",
@@ -150,6 +160,8 @@ const DETAIL_TRANSLATIONS = {
     loadError: "Unable to load trip details.",
     invalidDate: "Invalid date",
     checkoutBeforeCheckin: "Check-out cannot be earlier than check-in.",
+    endDateBeforeStart:
+      "The end date cannot be earlier than the trip start date.",
     attention: "Attention",
     expenseValidation: "Enter an expense name and a valid amount.",
     quoteUnavailable: "Exchange rate unavailable",
@@ -175,6 +187,12 @@ const DETAIL_TRANSLATIONS = {
     smartItinerary: "Smart itinerary",
     smartItinerarySubtitle:
       "Organize each day of your trip with activities and schedules.",
+    smartWeather: "Smart weather",
+    smartWeatherSubtitle:
+      "Check the weather forecast and get ready for each day of your trip.",
+    travelWallet: "Travel wallet",
+    travelWalletSubtitle:
+      "Keep your documents, tickets, and reservations organized.",
     planned: "Planned",
     experience: "YOUR EXPERIENCE",
     myTrip: "My trip",
@@ -187,7 +205,8 @@ const DETAIL_TRANSLATIONS = {
     destinationPlaceholder: "E.g. New York",
     transport: "Transportation",
     transportPlaceholder: "E.g. Airplane",
-    date: "Date",
+    date: "Start date",
+    endDate: "End date",
     tripDatePlaceholder: "Select your trip date",
     name: "Name",
     notInformed: "Not provided",
@@ -226,6 +245,7 @@ const DETAIL_TRANSLATIONS = {
     selectCheckout: "Select check-out",
     chooseCheckin: "Choose your hotel check-in date.",
     chooseTripStart: "Choose when your trip starts.",
+    chooseTripEnd: "Choose when your trip ends.",
     checkin: "Check-in",
     notSelected: "Not selected",
     cancel: "Cancel",
@@ -264,6 +284,8 @@ const DETAIL_TRANSLATIONS = {
     invalidDate: "Fecha no válida",
     checkoutBeforeCheckin:
       "La fecha de salida no puede ser anterior a la fecha de entrada.",
+    endDateBeforeStart:
+      "La fecha de finalización no puede ser anterior a la fecha de inicio del viaje.",
     attention: "Atención",
     expenseValidation: "Introduce el nombre y un importe válido para el gasto.",
     quoteUnavailable: "Tipo de cambio no disponible",
@@ -279,7 +301,7 @@ const DETAIL_TRANSLATIONS = {
     successMessage: "¡Información actualizada correctamente!",
     continue: "Continuar",
     saveError: "No fue posible guardar los cambios.",
-    tripNotFoundTitle: "Viaje no encontrado",
+    tripNotFoundTitle: "Viaje no encontrada",
     backToTrips: "Volver a mis viajes",
     trips: "Viajes",
     editTrip: "Editar viaje",
@@ -289,6 +311,12 @@ const DETAIL_TRANSLATIONS = {
     smartItinerary: "Itinerario inteligente",
     smartItinerarySubtitle:
       "Organiza cada día de tu viaje con actividades y horarios.",
+    smartWeather: "Clima inteligente",
+    smartWeatherSubtitle:
+      "Consulta el pronóstico del tiempo y prepárate para cada día del viaje.",
+    travelWallet: "Cartera de viaje",
+    travelWalletSubtitle:
+      "Mantén tus documentos, billetes y reservas organizados.",
     planned: "Planificado",
     experience: "TU EXPERIENCIA",
     myTrip: "Mi viaje",
@@ -301,7 +329,8 @@ const DETAIL_TRANSLATIONS = {
     destinationPlaceholder: "Ej.: Madrid",
     transport: "Transporte",
     transportPlaceholder: "Ej.: Avión",
-    date: "Fecha",
+    date: "Fecha de inicio",
+    endDate: "Fecha de finalización",
     tripDatePlaceholder: "Selecciona la fecha del viaje",
     name: "Nombre",
     notInformed: "No indicado",
@@ -340,6 +369,7 @@ const DETAIL_TRANSLATIONS = {
     selectCheckout: "Selecciona la salida",
     chooseCheckin: "Elige la fecha de entrada al hotel.",
     chooseTripStart: "Elige cuándo comienza tu viaje.",
+    chooseTripEnd: "Elige cuándo termina tu viaje.",
     checkin: "Entrada",
     notSelected: "No seleccionado",
     cancel: "Cancelar",
@@ -359,7 +389,7 @@ const DETAIL_TRANSLATIONS = {
       `La lista de excursiones del viaje a ${destination} ha sido modificada.`,
     budgetWarning: "¡Atención al presupuesto!",
     budgetWarningMessage: (percentage: string, destination: string) =>
-      `Ya has utilizado el ${percentage}% del presupuesto de tu viaje a ${destination}.`,
+      `Ya has utilizado el ${percentage}% de tu presupuesto de viaje a ${destination}.`,
     budgetExceeded: "¡Presupuesto excedido!",
     budgetExceededMessage: (destination: string, amount: string) =>
       `Los gastos de tu viaje a ${destination} han superado el presupuesto en ${amount}.`,
@@ -385,6 +415,7 @@ type Viagem = {
   destino: string;
   transporte: string;
   data: string;
+  dataFim?: string;
   hotelNome?: string;
   hotelEndereco?: string;
   hotelData?: string;
@@ -407,7 +438,7 @@ type NotificationItem = {
   viagemId?: string;
 };
 
-type DatePickerMode = "viagem" | "checkin" | "checkout" | null;
+type DatePickerMode = "viagem" | "fimViagem" | "checkin" | "checkout" | null;
 type IconeTransporte = keyof typeof MaterialCommunityIcons.glyphMap;
 
 type SectionHeaderProps = {
@@ -603,8 +634,29 @@ function formatarData(data: Date) {
 }
 
 function converterData(valor: string, anoReferencia?: number): Date | null {
-  const correspondencia = valor.match(
-    /^\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s*$/,
+  const valorNormalizado = valor.trim();
+
+  const dataISO = valorNormalizado.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (dataISO) {
+    const ano = Number(dataISO[1]);
+    const mes = Number(dataISO[2]);
+    const dia = Number(dataISO[3]);
+    const resultado = new Date(ano, mes - 1, dia, 12, 0, 0);
+
+    if (
+      resultado.getDate() !== dia ||
+      resultado.getMonth() !== mes - 1 ||
+      resultado.getFullYear() !== ano
+    ) {
+      return null;
+    }
+
+    return resultado;
+  }
+
+  const correspondencia = valorNormalizado.match(
+    /^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/,
   );
   if (!correspondencia) return null;
 
@@ -689,6 +741,7 @@ export default function Detalhes() {
   const [destino, setDestino] = useState("");
   const [transporte, setTransporte] = useState("");
   const [data, setData] = useState("");
+  const [dataFim, setDataFim] = useState("");
 
   const [hotelNome, setHotelNome] = useState("");
   const [hotelEndereco, setHotelEndereco] = useState("");
@@ -716,6 +769,7 @@ export default function Detalhes() {
   const iconeTransporte = obterIconeTransporte(transporte);
 
   const dataViagemExibicao = formatarDataExibicao(data, locale);
+  const dataFimViagemExibicao = formatarDataExibicao(dataFim, locale);
   const periodoHospedagemExibicao = formatarPeriodoExibicao(
     hotelData,
     locale,
@@ -740,6 +794,9 @@ export default function Detalhes() {
     setDestino(viagemAtual.destino);
     setTransporte(viagemAtual.transporte);
     setData(viagemAtual.data);
+    setDataFim(
+      typeof viagemAtual.dataFim === "string" ? viagemAtual.dataFim : "",
+    );
     setHotelNome(
       typeof viagemAtual.hotelNome === "string" ? viagemAtual.hotelNome : "",
     );
@@ -833,6 +890,14 @@ export default function Detalhes() {
     setShowDatePicker(true);
   };
 
+  const abrirCalendarioFimViagem = () => {
+    setSelectedDate(
+      converterData(dataFim) || converterData(data) || new Date(),
+    );
+    setDatePickerMode("fimViagem");
+    setShowDatePicker(true);
+  };
+
   const abrirCalendarioHospedagem = () => {
     const anoViagem =
       converterData(data)?.getFullYear() || new Date().getFullYear();
@@ -862,6 +927,21 @@ export default function Detalhes() {
     if (datePickerMode === "viagem") {
       if (Platform.OS === "android") {
         setData(formatarData(novaData));
+        fecharCalendario();
+      }
+      return;
+    }
+
+    if (datePickerMode === "fimViagem") {
+      const dataInicial = converterData(data);
+
+      if (dataInicial && novaData < dataInicial) {
+        Alert.alert(copy.invalidDate, copy.endDateBeforeStart);
+        return;
+      }
+
+      if (Platform.OS === "android") {
+        setDataFim(formatarData(novaData));
         fecharCalendario();
       }
       return;
@@ -907,6 +987,19 @@ export default function Detalhes() {
   const confirmarDataIOS = () => {
     if (datePickerMode === "viagem") {
       setData(formatarData(selectedDate));
+      fecharCalendario();
+      return;
+    }
+
+    if (datePickerMode === "fimViagem") {
+      const dataInicial = converterData(data);
+
+      if (dataInicial && selectedDate < dataInicial) {
+        Alert.alert(copy.invalidDate, copy.endDateBeforeStart);
+        return;
+      }
+
+      setDataFim(formatarData(selectedDate));
       fecharCalendario();
       return;
     }
@@ -1012,7 +1105,6 @@ export default function Detalhes() {
         (item) => preferencias[item.preferencia],
       );
 
-      // Lê os registros existentes antes de decidir se haverá novas notificações.
       const dadosExistentes = await AsyncStorage.getItem(
         NOTIFICATIONS_STORAGE_KEY,
       );
@@ -1029,7 +1121,6 @@ export default function Detalhes() {
           );
         }
 
-        // Não descarta registros inválidos, pois isso poderia apagar dados existentes.
         if (!parsed.every(validarNotificacao)) {
           throw new Error(
             "Existem notificações salvas com estrutura inválida. A gravação foi cancelada para preservar os dados.",
@@ -1047,7 +1138,6 @@ export default function Detalhes() {
         );
       }
 
-      // Sem notificações novas, ainda executa a migração de categorias antigas.
       if (notificacoesPermitidas.length === 0) {
         if (precisaMigrarCategoria) {
           await AsyncStorage.setItem(
@@ -1094,6 +1184,19 @@ export default function Detalhes() {
       return;
     }
 
+    const dataInicial = converterData(data);
+    const dataFinal = dataFim.trim() ? converterData(dataFim) : null;
+
+    if (dataFim.trim() && !dataFinal) {
+      Alert.alert(copy.invalidDate, copy.endDateBeforeStart);
+      return;
+    }
+
+    if (dataInicial && dataFinal && dataFinal < dataInicial) {
+      Alert.alert(copy.invalidDate, copy.endDateBeforeStart);
+      return;
+    }
+
     const valorOrcamentoInformado = converterValor(orcamentoEntrada);
     const orcamentoEmBRL = converterParaBRL(valorOrcamentoInformado);
 
@@ -1137,6 +1240,7 @@ export default function Detalhes() {
         destino: destino.trim(),
         transporte: transporte.trim(),
         data: data.trim(),
+        dataFim: dataFim.trim(),
         hotelNome: hotelNome.trim(),
         hotelEndereco: hotelEndereco.trim(),
         hotelData: hotelData.trim(),
@@ -1145,7 +1249,6 @@ export default function Detalhes() {
         gastos: JSON.stringify(gastos),
       };
 
-      // Preserva registros que não correspondem a esta viagem.
       const listaAtualizada = resultado.map((item) =>
         validarViagem(item) && item.id === viagemId ? novaViagem : item,
       );
@@ -1166,7 +1269,8 @@ export default function Detalhes() {
         viagemAnterior.nome !== novaViagem.nome ||
         viagemAnterior.destino !== novaViagem.destino ||
         viagemAnterior.transporte !== novaViagem.transporte ||
-        viagemAnterior.data !== novaViagem.data;
+        viagemAnterior.data !== novaViagem.data ||
+        (viagemAnterior.dataFim || "") !== (novaViagem.dataFim || "");
 
       const mudouHospedagem =
         (viagemAnterior.hotelNome || "") !== (novaViagem.hotelNome || "") ||
@@ -1435,10 +1539,12 @@ export default function Detalhes() {
 
   const tituloCalendario =
     datePickerMode === "viagem"
-      ? copy.tripDateTitle
-      : datePickerMode === "checkin"
-        ? copy.selectCheckin
-        : copy.selectCheckout;
+      ? copy.date
+      : datePickerMode === "fimViagem"
+        ? copy.endDate
+        : datePickerMode === "checkin"
+          ? copy.selectCheckin
+          : copy.selectCheckout;
 
   const renderCalendarioIOS = () => {
     if (!showDatePicker || Platform.OS !== "ios") return null;
@@ -1461,7 +1567,9 @@ export default function Detalhes() {
                 ? copy.chooseCheckin
                 : datePickerMode === "checkout"
                   ? `${copy.checkin}: ${hotelCheckin ? new Intl.DateTimeFormat(locale).format(hotelCheckin) : copy.notSelected}`
-                  : copy.chooseTripStart}
+                  : datePickerMode === "fimViagem"
+                    ? copy.chooseTripEnd
+                    : copy.chooseTripStart}
             </Text>
           </View>
           <Pressable
@@ -1482,6 +1590,7 @@ export default function Detalhes() {
           value={selectedDate}
           mode="date"
           display="spinner"
+          locale={locale}
           onValueChange={(_event, novaData) => {
             if (novaData) setSelectedDate(novaData);
           }}
@@ -1490,7 +1599,9 @@ export default function Detalhes() {
           minimumDate={
             datePickerMode === "checkout"
               ? hotelCheckin || undefined
-              : undefined
+              : datePickerMode === "fimViagem"
+                ? converterData(data) || undefined
+                : undefined
           }
         />
 
@@ -1622,6 +1733,13 @@ export default function Detalhes() {
             value={selectedDate}
             mode="date"
             display="calendar"
+            minimumDate={
+              datePickerMode === "fimViagem"
+                ? converterData(data) || undefined
+                : datePickerMode === "checkout"
+                  ? hotelCheckin || undefined
+                  : undefined
+            }
             onValueChange={(_event, novaData) =>
               alterarDataCalendario(novaData)
             }
@@ -1754,6 +1872,88 @@ export default function Detalhes() {
             </Pressable>
           )}
 
+          {!editando && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.smartItineraryButton,
+                {
+                  backgroundColor: isDark ? "#263322" : "#EAF0E2",
+                  borderColor: isDark ? "#46583A" : "#D8E3CA",
+                  opacity: pressed ? 0.86 : 1,
+                  transform: [{ scale: pressed ? 0.99 : 1 }],
+                },
+              ]}
+              onPress={() =>
+                router.push(`/clima?id=${encodeURIComponent(viagemId)}` as Href)
+              }
+              accessibilityRole="button"
+              accessibilityLabel={copy.smartWeather}
+              accessibilityHint={copy.smartWeatherSubtitle}
+            >
+              <View style={styles.smartItineraryIcon}>
+                <Ionicons name="cloud-outline" size={23} color="#FFFFFF" />
+              </View>
+              <View style={styles.smartItineraryContent}>
+                <Text
+                  style={[styles.smartItineraryTitle, { color: primaryText }]}
+                >
+                  {copy.smartWeather}
+                </Text>
+                <Text
+                  style={[
+                    styles.smartItinerarySubtitle,
+                    { color: secondaryText },
+                  ]}
+                >
+                  {copy.smartWeatherSubtitle}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={accent} />
+            </Pressable>
+          )}
+
+          {!editando && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.smartItineraryButton,
+                {
+                  backgroundColor: isDark ? "#263322" : "#EAF0E2",
+                  borderColor: isDark ? "#46583A" : "#D8E3CA",
+                  opacity: pressed ? 0.86 : 1,
+                  transform: [{ scale: pressed ? 0.99 : 1 }],
+                },
+              ]}
+              onPress={() =>
+                router.push(
+                  `/carteira?id=${encodeURIComponent(viagemId)}` as Href,
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel={copy.travelWallet}
+              accessibilityHint={copy.travelWalletSubtitle}
+            >
+              <View style={styles.smartItineraryIcon}>
+                <Ionicons name="briefcase-outline" size={23} color="#FFFFFF" />
+              </View>
+              <View style={styles.smartItineraryContent}>
+                <Text
+                  style={[styles.smartItineraryTitle, { color: primaryText }]}
+                >
+                  {copy.travelWallet}
+                </Text>
+                <Text
+                  style={[
+                    styles.smartItinerarySubtitle,
+                    { color: secondaryText },
+                  ]}
+                >
+                  {copy.travelWalletSubtitle}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={accent} />
+            </Pressable>
+          )}
+
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
@@ -1792,6 +1992,15 @@ export default function Detalhes() {
                   copy.tripDatePlaceholder,
                 )}
                 {datePickerMode === "viagem" && renderCalendarioIOS()}
+
+                {renderDateInput(
+                  copy.endDate,
+                  dataFim,
+                  dataFimViagemExibicao,
+                  abrirCalendarioFimViagem,
+                  copy.tripDatePlaceholder,
+                )}
+                {datePickerMode === "fimViagem" && renderCalendarioIOS()}
               </>
             ) : (
               <View style={styles.infoGrid}>
@@ -1799,6 +2008,12 @@ export default function Detalhes() {
                 {renderInfo(copy.destination, destino, "location-outline")}
                 {renderInfoTransporte()}
                 {renderInfo(copy.date, dataViagemExibicao, "calendar-outline")}
+                {!!dataFim.trim() &&
+                  renderInfo(
+                    copy.endDate,
+                    dataFimViagemExibicao,
+                    "checkmark-circle-outline",
+                  )}
               </View>
             )}
           </View>

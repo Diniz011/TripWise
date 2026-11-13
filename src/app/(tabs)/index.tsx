@@ -34,6 +34,7 @@ type Viagem = {
   destino: string;
   transporte: string;
   data: string;
+  dataFim?: string;
 };
 
 type NotificationItem = {
@@ -64,7 +65,11 @@ type HomeTranslations = {
   destination: string;
   transport: string;
   tripDate: string;
+  tripEndDate: string;
   selectTripDate: string;
+  selectTripEndDate: string;
+  selectTripEndDateAccessibility: string;
+  invalidTripPeriod: string;
   finish: string;
   addTrip: string;
   myTrips: string;
@@ -108,8 +113,13 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     tripName: "Nome da viagem",
     destination: "Destino",
     transport: "Meio de transporte",
-    tripDate: "Data da viagem",
-    selectTripDate: "Selecione a data da viagem",
+    tripDate: "Data de início da viagem",
+    tripEndDate: "Data final da viagem",
+    selectTripDate: "Selecione a data de início",
+    selectTripEndDate: "Selecione a data final da viagem",
+    selectTripEndDateAccessibility: "Selecionar data final da viagem",
+    invalidTripPeriod:
+      "A data final precisa ser igual ou posterior à data de início.",
     finish: "Concluir",
     addTrip: "Adicionar viagem",
     myTrips: "Minhas viagens",
@@ -139,7 +149,7 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     journeyStarts: "Sua jornada começa aqui",
     emptyDescription:
       "Você ainda não possui viagens cadastradas. Adicione seu primeiro destino e comece a planejar!",
-    selectDateAccessibility: "Selecionar data da viagem",
+    selectDateAccessibility: "Selecionar data de início da viagem",
   },
 
   en: {
@@ -154,8 +164,13 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     tripName: "Trip name",
     destination: "Destination",
     transport: "Means of transport",
-    tripDate: "Trip date",
-    selectTripDate: "Select your trip date",
+    tripDate: "Trip start date",
+    tripEndDate: "Trip end date",
+    selectTripDate: "Select the start date",
+    selectTripEndDate: "Select the trip end date",
+    selectTripEndDateAccessibility: "Select trip end date",
+    invalidTripPeriod:
+      "The end date must be the same as or later than the start date.",
     finish: "Done",
     addTrip: "Add trip",
     myTrips: "My trips",
@@ -185,7 +200,7 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     journeyStarts: "Your journey starts here",
     emptyDescription:
       "You don't have any trips yet. Add your first destination and start planning!",
-    selectDateAccessibility: "Select trip date",
+    selectDateAccessibility: "Select trip start date",
   },
 
   es: {
@@ -200,8 +215,14 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     tripName: "Nombre del viaje",
     destination: "Destino",
     transport: "Medio de transporte",
-    tripDate: "Fecha del viaje",
-    selectTripDate: "Selecciona la fecha del viaje",
+    tripDate: "Fecha de inicio del viaje",
+    tripEndDate: "Fecha de finalización del viaje",
+    selectTripDate: "Selecciona la fecha de inicio",
+    selectTripEndDate: "Selecciona la fecha de finalización",
+    selectTripEndDateAccessibility:
+      "Seleccionar fecha de finalización del viaje",
+    invalidTripPeriod:
+      "La fecha de finalización debe ser igual o posterior a la fecha de inicio.",
     finish: "Finalizar",
     addTrip: "Añadir viaje",
     myTrips: "Mis viajes",
@@ -231,11 +252,12 @@ const HOME_TRANSLATIONS: Record<"pt-BR" | "en" | "es", HomeTranslations> = {
     journeyStarts: "Tu aventura comienza aquí",
     emptyDescription:
       "Todavía no tienes viajes registrados. ¡Añade tu primer destino y empieza a planificar!",
-    selectDateAccessibility: "Seleccionar fecha del viaje",
+    selectDateAccessibility: "Seleccionar fecha de inicio del viaje",
   },
 };
 
 // Valida os dados de cada viagem antes de utilizá-los na interface.
+// dataFim permanece opcional para manter a compatibilidade com viagens antigas.
 const isViagem = (valor: unknown): valor is Viagem => {
   if (typeof valor !== "object" || valor === null) {
     return false;
@@ -253,7 +275,8 @@ const isViagem = (valor: unknown): valor is Viagem => {
     typeof viagem.transporte === "string" &&
     viagem.transporte.trim().length > 0 &&
     typeof viagem.data === "string" &&
-    viagem.data.trim().length > 0
+    viagem.data.trim().length > 0 &&
+    (viagem.dataFim === undefined || typeof viagem.dataFim === "string")
   );
 };
 
@@ -393,10 +416,13 @@ export default function Index() {
   const [destino, setDestino] = useState("");
   const [transporte, setTransporte] = useState("");
   const [data, setData] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [viagens, setViagens] = useState<Viagem[]>([]);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedEndDate, setSelectedEndDate] = useState(new Date());
 
   const background = isDark ? "#121212" : "#F4F6FA";
   const cardBackground = isDark ? "#1E1E1E" : "#FFFFFF";
@@ -441,10 +467,25 @@ export default function Index() {
     setShowDatePicker(true);
   };
 
+  const abrirCalendarioFinal = () => {
+    const dataAtual = converterData(dataFim);
+    const dataInicial = converterData(data);
+
+    setSelectedEndDate(dataAtual || dataInicial || new Date());
+    setShowEndDatePicker(true);
+  };
+
   const alterarData = (novaData?: Date) => {
     if (novaData) {
       setSelectedDate(novaData);
       setData(formatarData(novaData));
+    }
+  };
+
+  const alterarDataFinal = (novaData?: Date) => {
+    if (novaData) {
+      setSelectedEndDate(novaData);
+      setDataFim(formatarData(novaData));
     }
   };
 
@@ -505,9 +546,22 @@ export default function Index() {
       !nomeViagem.trim() ||
       !destino.trim() ||
       !transporte.trim() ||
-      !data.trim()
+      !data.trim() ||
+      !dataFim.trim()
     ) {
       Alert.alert(copy.attention, copy.fillFields);
+      return;
+    }
+
+    const dataInicial = converterData(data);
+    const dataFinal = converterData(dataFim);
+
+    if (
+      !dataInicial ||
+      !dataFinal ||
+      dataFinal.getTime() < dataInicial.getTime()
+    ) {
+      Alert.alert(copy.attention, copy.invalidTripPeriod);
       return;
     }
 
@@ -540,6 +594,7 @@ export default function Index() {
         destino: destino.trim(),
         transporte: transporte.trim(),
         data: data.trim(),
+        dataFim: dataFim.trim(),
       };
 
       const lista = [...listaAtual, novaViagem];
@@ -551,6 +606,7 @@ export default function Index() {
       setDestino("");
       setTransporte("");
       setData("");
+      setDataFim("");
 
       try {
         await agendarLembreteViagem(novaViagem);
@@ -790,6 +846,85 @@ export default function Index() {
             display="calendar"
             onValueChange={(_event, novaData) => alterarData(novaData)}
             onDismiss={() => setShowDatePicker(false)}
+          />
+        )}
+
+        <Pressable
+          style={[
+            styles.inputContainer,
+            { backgroundColor: inputBackground, borderColor },
+          ]}
+          onPress={abrirCalendarioFinal}
+          accessibilityRole="button"
+          accessibilityLabel={copy.selectTripEndDateAccessibility}
+        >
+          <Ionicons name="calendar-outline" size={19} color={accent} />
+
+          <Text
+            style={[
+              styles.dateInputText,
+              { color: dataFim ? primaryText : secondaryText },
+            ]}
+          >
+            {dataFim ? formatarDataExibicao(dataFim, locale) : copy.tripEndDate}
+          </Text>
+
+          <Ionicons
+            name="chevron-down-outline"
+            size={17}
+            color={secondaryText}
+          />
+        </Pressable>
+
+        {showEndDatePicker && Platform.OS === "ios" && (
+          <View
+            style={[
+              styles.datePickerContainer,
+              {
+                backgroundColor: inputBackground,
+                borderColor,
+              },
+            ]}
+          >
+            <Text style={[styles.datePickerTitle, { color: primaryText }]}>
+              {copy.selectTripEndDate}
+            </Text>
+
+            <DateTimePicker
+              value={selectedEndDate}
+              mode="date"
+              display="spinner"
+              locale={locale}
+              minimumDate={converterData(data) || undefined}
+              onValueChange={(_event, novaData) => alterarDataFinal(novaData)}
+              textColor={primaryText}
+              style={styles.iosDatePicker}
+            />
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.datePickerButton,
+                { opacity: pressed ? 0.6 : 1 },
+              ]}
+              onPress={() => setShowEndDatePicker(false)}
+              accessibilityRole="button"
+            >
+              <Ionicons name="checkmark" size={19} color={accent} />
+              <Text style={[styles.datePickerButtonText, { color: accent }]}>
+                {copy.finish}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {showEndDatePicker && Platform.OS === "android" && (
+          <DateTimePicker
+            value={selectedEndDate}
+            mode="date"
+            display="calendar"
+            minimumDate={converterData(data) || undefined}
+            onValueChange={(_event, novaData) => alterarDataFinal(novaData)}
+            onDismiss={() => setShowEndDatePicker(false)}
           />
         )}
 

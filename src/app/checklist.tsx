@@ -3,19 +3,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -257,6 +257,46 @@ export default function ChecklistScreen() {
     [isDark],
   );
 
+  // Traduz os itens padrão sem modificar os dados persistidos.
+  // Itens personalizados e itens padrão editados pelo usuário
+  // continuam exibindo exatamente o texto definido pelo usuário.
+  const getDisplayItemTitle = useCallback(
+    (item: ChecklistItem) => {
+      const match = /^suggested-(\d+)$/.exec(item.id);
+
+      if (!match) {
+        return item.title;
+      }
+
+      const suggestedIndex = Number(match[1]) - 1;
+
+      if (
+        !Number.isInteger(suggestedIndex) ||
+        suggestedIndex < 0 ||
+        suggestedIndex >= TRANSLATIONS["pt-BR"].suggested.length
+      ) {
+        return item.title;
+      }
+
+      const originalTitles = [
+        TRANSLATIONS["pt-BR"].suggested[suggestedIndex]?.title,
+        TRANSLATIONS.en.suggested[suggestedIndex]?.title,
+        TRANSLATIONS.es.suggested[suggestedIndex]?.title,
+      ];
+
+      const isUnmodifiedSuggestedItem = originalTitles.some(
+        (title) => title === item.title,
+      );
+
+      if (!isUnmodifiedSuggestedItem) {
+        return item.title;
+      }
+
+      return copy.suggested[suggestedIndex]?.title ?? item.title;
+    },
+    [copy],
+  );
+
   const loadChecklist = useCallback(async () => {
     if (!id) {
       setLoadFailed(true);
@@ -429,7 +469,7 @@ export default function ChecklistScreen() {
 
   const openEditModal = (item: ChecklistItem) => {
     setEditingItem(item);
-    setItemTitle(item.title);
+    setItemTitle(getDisplayItemTitle(item));
     setItemCategory(item.category);
     setModalVisible(true);
   };
@@ -564,7 +604,7 @@ export default function ChecklistScreen() {
         <Pressable
           accessibilityRole="checkbox"
           accessibilityState={{ checked: item.completed }}
-          accessibilityLabel={item.title}
+          accessibilityLabel={getDisplayItemTitle(item)}
           disabled={saving}
           onPress={() => toggleItem(item)}
           style={styles.itemMain}
@@ -593,7 +633,7 @@ export default function ChecklistScreen() {
                 },
               ]}
             >
-              {item.title}
+              {getDisplayItemTitle(item)}
             </Text>
 
             <View style={styles.itemCategory}>
