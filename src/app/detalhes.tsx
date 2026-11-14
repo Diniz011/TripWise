@@ -97,10 +97,6 @@ const DETAIL_TRANSLATIONS = {
     accommodationDatePlaceholder: "Selecione check-in e check-out",
     hotel: "Hotel",
     period: "Período",
-    tours: "Passeios e experiências",
-    toursSubtitle: "Lugares que você deseja conhecer",
-    noTours: "Nenhum passeio cadastrado ainda.",
-    addTour: "Adicionar passeio",
     budget: "Orçamento financeiro",
     budgetSubtitle: "Controle seus gastos durante a viagem",
     remainingBalance: "SALDO RESTANTE",
@@ -137,9 +133,6 @@ const DETAIL_TRANSLATIONS = {
       `As informações da hospedagem da viagem para ${destination} foram atualizadas.`,
     accommodationRemovedMessage: (destination: string) =>
       `A hospedagem da viagem para ${destination} foi removida.`,
-    toursUpdated: "Passeios atualizados!",
-    toursUpdatedMessage: (destination: string) =>
-      `A lista de passeios da viagem para ${destination} foi modificada.`,
     budgetWarning: "Atenção ao orçamento!",
     budgetWarningMessage: (percentage: string, destination: string) =>
       `Você já utilizou ${percentage}% do orçamento da viagem para ${destination}.`,
@@ -150,8 +143,6 @@ const DETAIL_TRANSLATIONS = {
     retry: "Tentar novamente",
     backAccessibility: "Voltar para minhas viagens",
     closeCalendarAccessibility: "Fechar calendário",
-    removeTourAccessibility: "Remover passeio",
-    addTourAccessibility: "Adicionar passeio",
     removeExpenseAccessibility: "Remover gasto",
     addExpenseAccessibility: "Adicionar gasto",
   },
@@ -220,10 +211,6 @@ const DETAIL_TRANSLATIONS = {
     accommodationDatePlaceholder: "Select check-in and check-out",
     hotel: "Hotel",
     period: "Period",
-    tours: "Tours and experiences",
-    toursSubtitle: "Places you would like to visit",
-    noTours: "No tours added yet.",
-    addTour: "Add tour",
     budget: "Travel budget",
     budgetSubtitle: "Track your expenses during the trip",
     remainingBalance: "REMAINING BALANCE",
@@ -260,9 +247,6 @@ const DETAIL_TRANSLATIONS = {
       `The accommodation details for your trip to ${destination} have been updated.`,
     accommodationRemovedMessage: (destination: string) =>
       `The accommodation for your trip to ${destination} has been removed.`,
-    toursUpdated: "Tours updated!",
-    toursUpdatedMessage: (destination: string) =>
-      `The tour list for your trip to ${destination} has been modified.`,
     budgetWarning: "Budget alert!",
     budgetWarningMessage: (percentage: string, destination: string) =>
       `You have used ${percentage}% of your budget for your trip to ${destination}.`,
@@ -273,8 +257,6 @@ const DETAIL_TRANSLATIONS = {
     retry: "Try again",
     backAccessibility: "Back to my trips",
     closeCalendarAccessibility: "Close calendar",
-    removeTourAccessibility: "Remove tour",
-    addTourAccessibility: "Add tour",
     removeExpenseAccessibility: "Remove expense",
     addExpenseAccessibility: "Add expense",
   },
@@ -344,10 +326,6 @@ const DETAIL_TRANSLATIONS = {
     accommodationDatePlaceholder: "Selecciona entrada y salida",
     hotel: "Hotel",
     period: "Período",
-    tours: "Excursiones y experiencias",
-    toursSubtitle: "Lugares que deseas conocer",
-    noTours: "Todavía no hay excursiones registradas.",
-    addTour: "Añadir excursión",
     budget: "Presupuesto del viaje",
     budgetSubtitle: "Controla tus gastos durante el viaje",
     remainingBalance: "SALDO RESTANTE",
@@ -384,9 +362,6 @@ const DETAIL_TRANSLATIONS = {
       `La información del alojamiento de tu viaje a ${destination} ha sido actualizada.`,
     accommodationRemovedMessage: (destination: string) =>
       `El alojamiento de tu viaje a ${destination} ha sido eliminado.`,
-    toursUpdated: "¡Excursiones actualizadas!",
-    toursUpdatedMessage: (destination: string) =>
-      `La lista de excursiones del viaje a ${destination} ha sido modificada.`,
     budgetWarning: "¡Atención al presupuesto!",
     budgetWarningMessage: (percentage: string, destination: string) =>
       `Ya has utilizado el ${percentage}% de tu presupuesto de viaje a ${destination}.`,
@@ -397,8 +372,6 @@ const DETAIL_TRANSLATIONS = {
     retry: "Intentar de nuevo",
     backAccessibility: "Volver a mis viajes",
     closeCalendarAccessibility: "Cerrar calendario",
-    removeTourAccessibility: "Eliminar excursión",
-    addTourAccessibility: "Añadir excursión",
     removeExpenseAccessibility: "Eliminar gasto",
     addExpenseAccessibility: "Añadir gasto",
   },
@@ -419,7 +392,6 @@ type Viagem = {
   hotelNome?: string;
   hotelEndereco?: string;
   hotelData?: string;
-  passeios?: string | string[];
   orcamentoTotal?: string;
   gastos?: string | Gasto[];
 };
@@ -584,20 +556,6 @@ function normalizarCategoriaNotificacao(
   };
 }
 
-function lerPasseios(valor: unknown): string[] {
-  if (!valor) return [];
-
-  try {
-    const resultado: unknown =
-      typeof valor === "string" ? JSON.parse(valor) : valor;
-    return Array.isArray(resultado)
-      ? resultado.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
 function validarGasto(value: unknown): value is Gasto {
   return (
     isRecord(value) &&
@@ -747,9 +705,6 @@ export default function Detalhes() {
   const [hotelEndereco, setHotelEndereco] = useState("");
   const [hotelData, setHotelData] = useState("");
 
-  const [passeios, setPasseios] = useState<string[]>([]);
-  const [novoPasseio, setNovoPasseio] = useState("");
-
   const [orcamentoTotal, setOrcamentoTotal] = useState("0");
   const [orcamentoEntrada, setOrcamentoEntrada] = useState("0");
 
@@ -808,7 +763,6 @@ export default function Detalhes() {
     setHotelData(
       typeof viagemAtual.hotelData === "string" ? viagemAtual.hotelData : "",
     );
-    setPasseios(lerPasseios(viagemAtual.passeios));
     setGastos(lerGastos(viagemAtual.gastos));
     setOrcamentoTotal(
       typeof viagemAtual.orcamentoTotal === "string"
@@ -1040,16 +994,6 @@ export default function Detalhes() {
 
   const percentualGasto = Math.min(percentualGastoReal, 100);
 
-  const adicionarPasseio = () => {
-    if (!novoPasseio.trim()) return;
-    setPasseios((atual) => [...atual, novoPasseio.trim()]);
-    setNovoPasseio("");
-  };
-
-  const removerPasseio = (index: number) => {
-    setPasseios((atual) => atual.filter((_, i) => i !== index));
-  };
-
   const adicionarGasto = () => {
     const valorInformado = converterValor(novoGastoValor);
 
@@ -1244,7 +1188,6 @@ export default function Detalhes() {
         hotelNome: hotelNome.trim(),
         hotelEndereco: hotelEndereco.trim(),
         hotelData: hotelData.trim(),
-        passeios: JSON.stringify(passeios),
         orcamentoTotal: String(orcamentoEmBRL),
         gastos: JSON.stringify(gastos),
       };
@@ -1278,10 +1221,6 @@ export default function Detalhes() {
           (novaViagem.hotelEndereco || "") ||
         (viagemAnterior.hotelData || "") !== (novaViagem.hotelData || "");
 
-      const passeiosAnteriores = lerPasseios(viagemAnterior.passeios);
-      const mudouPasseios =
-        JSON.stringify(passeiosAnteriores) !== JSON.stringify(passeios);
-
       const orcamentoAnterior = converterValor(
         viagemAnterior.orcamentoTotal || "0",
       );
@@ -1308,7 +1247,6 @@ export default function Detalhes() {
       const mudouAlgumaInformacao =
         mudouInformacaoPrincipal ||
         mudouHospedagem ||
-        mudouPasseios ||
         mudouOrcamento ||
         mudouListaGastos;
 
@@ -1354,18 +1292,6 @@ export default function Detalhes() {
           icone: "bed-outline",
           cor: "#6D91C7",
           fundo: "#6D91C718",
-        });
-      }
-
-      if (mudouPasseios) {
-        notificacoesParaRegistrar.push({
-          preferencia: "passeios",
-          titulo: copy.toursUpdated,
-          mensagem: copy.toursUpdatedMessage(novaViagem.destino),
-          categoria: "passeio",
-          icone: "ticket-outline",
-          cor: "#A17BC2",
-          fundo: "#A17BC218",
         });
       }
 
@@ -2068,88 +1994,6 @@ export default function Detalhes() {
           <View style={[styles.card, { backgroundColor: cardBackground }]}>
             <SectionHeader
               {...sectionHeaderProps}
-              title={copy.tours}
-              subtitle={copy.toursSubtitle}
-              icon="ticket-outline"
-            />
-
-            {passeios.length === 0 && !editando ? (
-              <Text style={[styles.emptyMessage, { color: secondaryText }]}>
-                {copy.noTours}
-              </Text>
-            ) : (
-              passeios.map((item, index) => (
-                <View
-                  key={`${index}-${item}`}
-                  style={[styles.listItem, { borderBottomColor: borderColor }]}
-                >
-                  <View style={styles.listItemLeft}>
-                    <Ionicons
-                      name="navigate-circle-outline"
-                      size={21}
-                      color={accent}
-                    />
-                    <Text style={[styles.listItemText, { color: primaryText }]}>
-                      {item}
-                    </Text>
-                  </View>
-                  {editando && (
-                    <Pressable
-                      onPress={() => removerPasseio(index)}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${copy.removeTourAccessibility}: ${item}`}
-                    >
-                      <Ionicons
-                        name="trash-outline"
-                        size={19}
-                        color="#D96B6B"
-                      />
-                    </Pressable>
-                  )}
-                </View>
-              ))
-            )}
-
-            {editando && (
-              <View style={styles.addRow}>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    styles.flexInput,
-                    { backgroundColor: inputBackground, borderColor },
-                  ]}
-                >
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={18}
-                    color={accent}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: primaryText }]}
-                    placeholder={copy.addTour}
-                    placeholderTextColor={secondaryText}
-                    value={novoPasseio}
-                    onChangeText={setNovoPasseio}
-                    onSubmitEditing={adicionarPasseio}
-                    accessibilityLabel={copy.addTour}
-                  />
-                </View>
-                <Pressable
-                  style={styles.addButton}
-                  onPress={adicionarPasseio}
-                  accessibilityRole="button"
-                  accessibilityLabel={copy.addTourAccessibility}
-                >
-                  <Ionicons name="add" size={23} color="#FFFFFF" />
-                </Pressable>
-              </View>
-            )}
-          </View>
-
-          <View style={[styles.card, { backgroundColor: cardBackground }]}>
-            <SectionHeader
-              {...sectionHeaderProps}
               title={copy.budget}
               subtitle={copy.budgetSubtitle}
               icon="wallet-outline"
@@ -2577,13 +2421,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
-  },
-  listItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   listItemLeft: {
     flexDirection: "row",

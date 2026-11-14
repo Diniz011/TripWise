@@ -797,6 +797,9 @@ export default function Notificacoes() {
   const [filter, setFilter] = useState<"Todas" | "Não lidas">("Todas");
   const [loading, setLoading] = useState(true);
 
+  // Controla o carregamento inicial para evitar a piscada ao retornar à aba.
+  const hasLoadedNotificationsRef = useRef(false);
+
   const unreadCount = notifications.filter((item) => !item.read).length;
 
   // Recarrega as notificações sempre que a aba recebe foco.
@@ -806,7 +809,10 @@ export default function Notificacoes() {
 
       async function loadNotifications() {
         try {
-          setLoading(true);
+          // O indicador aparece somente durante o primeiro carregamento.
+          if (!hasLoadedNotificationsRef.current) {
+            setLoading(true);
+          }
 
           const saved = await AsyncStorage.getItem(STORAGE_KEY);
 
@@ -853,11 +859,13 @@ export default function Notificacoes() {
         } catch (error) {
           console.error("Erro ao carregar notificações:", error);
 
-          if (isActive) {
+          // Se a atualização em segundo plano falhar, preserva os dados atuais.
+          if (isActive && !hasLoadedNotificationsRef.current) {
             setNotifications([]);
           }
         } finally {
           if (isActive) {
+            hasLoadedNotificationsRef.current = true;
             setLoading(false);
           }
         }

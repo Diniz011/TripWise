@@ -59,6 +59,19 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Suporte aos idiomas Português, Inglês e Espanhol.
 - Suporte aos modos claro e escuro.
 
+### 🗓️ Trip Timeline
+
+- Tela dedicada à visualização da linha do tempo de cada viagem.
+- Seleção da viagem para consultar sua respectiva Timeline.
+- Tela de detalhes com informações relacionadas à viagem selecionada.
+- Navegação entre a seleção de viagens e os detalhes por meio de uma estrutura Stack com Expo Router.
+- Organização da navegação em rotas aninhadas.
+- Integração com as informações da viagem selecionada.
+- Carregamento otimizado dos dados ao retornar à tela.
+- Preservação do conteúdo já carregado durante atualizações de dados.
+- Suporte aos idiomas Português, Inglês e Espanhol.
+- Suporte aos modos claro e escuro.
+
 ### ☑️ Checklist da Viagem
 
 - Tela dedicada à organização dos itens necessários para a viagem.
@@ -67,6 +80,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Acompanhamento dos itens concluídos e pendentes.
 - Persistência local das informações por viagem.
 - Interface integrada aos idiomas e temas do aplicativo.
+- Atualização dinâmica do idioma dos itens padrão conforme a preferência selecionada no aplicativo, independentemente do idioma utilizado na criação da viagem.
 
 ### 🌤️ Clima Inteligente
 
@@ -110,6 +124,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Persistência da preferência de idioma entre sessões.
 - Formatação de datas conforme a localidade selecionada.
 - Internacionalização dos componentes de seleção de datas.
+- Atualização dos itens padrão do Checklist conforme o idioma atualmente selecionado, mesmo quando a viagem foi criada em outro idioma.
 
 ### 🔔 Sistema de Notificações
 
@@ -136,6 +151,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Abertura dos detalhes da viagem relacionada ao tocar em uma notificação.
 - Atualização do contador de notificações na navegação do aplicativo.
 - Sincronização das alterações na central de notificações.
+- Preservação das notificações já carregadas ao retornar à tela, evitando carregamentos desnecessários e piscadas visuais.
 
 ### 🎨 Interface e Experiência do Usuário
 
@@ -152,6 +168,11 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 - Melhorias na navegação e na organização dos componentes.
 - Aprimoramentos de acessibilidade, incluindo identificação de elementos interativos.
 - Melhorias na consistência visual e na experiência entre as telas.
+- Aprimoramento da estabilidade da navegação entre abas.
+- Correção de piscadas visuais ao retornar às telas Timeline e Notificações.
+- Preservação do conteúdo já carregado durante atualizações de dados ao recuperar o foco das telas.
+- Melhorias no gerenciamento dos estados de carregamento, evitando a substituição desnecessária do conteúdo por indicadores de carregamento.
+- Preservação das transições nativas do iOS e da experiência visual da Tab Bar.
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -159,7 +180,7 @@ O objetivo é oferecer uma experiência completa para que os usuários possam or
 | --------------------------- | -------------------------------------------------- |
 | React Native                | Desenvolvimento da interface mobile                |
 | Expo                        | Ambiente e ferramentas de desenvolvimento          |
-| Expo Router                 | Navegação baseada em arquivos                      |
+| Expo Router                 | Navegação baseada em arquivos e estruturas Stack   |
 | TypeScript                  | Tipagem estática e segurança no código             |
 | AsyncStorage                | Persistência local de dados e preferências         |
 | Expo Notifications          | Gerenciamento e agendamento de notificações locais |
@@ -213,13 +234,15 @@ npx tsc --noEmit
 
 ## 💾 Armazenamento e Persistência
 
-O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, idioma, moeda selecionada, dados do perfil, notificações, roteiros, checklists e registros da Carteira de Viagem, conforme os recursos implementados.
+O aplicativo utiliza **AsyncStorage** para persistir localmente informações de viagens, orçamentos, gastos, preferências de aparência, idioma, moeda selecionada, dados do perfil, notificações, roteiros, checklists, registros da Carteira de Viagem e informações relacionadas à Timeline, conforme os recursos implementados.
 
 Os valores financeiros são armazenados internamente em Reais (BRL). A conversão para Dólar (USD) ou Euro (EUR) acontece conforme a moeda selecionada pelo usuário.
 
 As cotações cambiais são consultadas por meio de uma API externa e armazenadas localmente para utilização no aplicativo.
 
 Os dados recuperados do armazenamento passam por validações antes de serem utilizados pela interface, contribuindo para a estabilidade do aplicativo.
+
+As telas que utilizam carregamento de dados ao recuperar o foco foram aprimoradas para preservar o conteúdo já apresentado, evitando indicadores de carregamento desnecessários e melhorando a experiência de navegação.
 
 **Observação:** Os dados armazenados localmente pelo AsyncStorage não devem ser considerados um cofre criptografado para documentos ou informações altamente sensíveis.
 

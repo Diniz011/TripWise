@@ -11,16 +11,19 @@ const NOTIFICATIONS_CHANGED_EVENT = "tripwise:notificationsChanged";
 const TAB_TRANSLATIONS = {
   "pt-BR": {
     trips: "Viagens",
+    timeline: "Timeline",
     notifications: "Notificações",
     profile: "Perfil",
   },
   en: {
     trips: "Trips",
+    timeline: "Timeline",
     notifications: "Notifications",
     profile: "Profile",
   },
   es: {
     trips: "Viajes",
+    timeline: "Cronología",
     notifications: "Notificaciones",
     profile: "Perfil",
   },
@@ -106,6 +109,19 @@ export default function TabLayout() {
             selected: "airplane",
           }}
           md="flight"
+        />
+      </NativeTabs.Trigger>
+
+      {/* TIMELINE */}
+      <NativeTabs.Trigger name="timeline">
+        <NativeTabs.Trigger.Label>{copy.timeline}</NativeTabs.Trigger.Label>
+
+        <NativeTabs.Trigger.Icon
+          sf={{
+            default: "map",
+            selected: "map.fill",
+          }}
+          md="route"
         />
       </NativeTabs.Trigger>
 
